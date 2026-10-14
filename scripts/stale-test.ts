@@ -5,9 +5,11 @@
  * exclude the comment from the denominator, and leave it unresolved.
  * Run: npx tsx scripts/stale-test.ts
  */
-import 'dotenv/config'
+import dotenv from 'dotenv'
+import { fileURLToPath } from 'node:url'
+dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { JSDOM } from 'jsdom'
 import { app } from '../server/src/index.js'
 import * as sd from '../server/src/slashdocs.js'

@@ -2,10 +2,12 @@
  * npm run smoke — clean case end to end against a locally served slashdocs
  * document, printing the real metrics. Drives the Hono app in-process.
  */
-import 'dotenv/config'
+import dotenv from 'dotenv'
+import { fileURLToPath } from 'node:url'
+dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 import { JSDOM } from 'jsdom'
 import { readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, dirname } from 'node:path'
 import { app } from '../server/src/index.js'
 import * as sd from '../server/src/slashdocs.js'
 import { runDir } from '../server/src/runs.js'

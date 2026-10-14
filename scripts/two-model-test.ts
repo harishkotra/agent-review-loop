@@ -3,14 +3,18 @@
  * The scorecards must show two different attribution rates and two
  * different token totals. Run: npx tsx scripts/two-model-test.ts
  */
-import 'dotenv/config'
+import dotenv from 'dotenv'
 import { JSDOM } from 'jsdom'
-import { readFileSync, writeFileSync, copyFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { app } from '../server/src/index.js'
 import * as sd from '../server/src/slashdocs.js'
 import { runDir, createRunDir } from '../server/src/runs.js'
 import type { SdComment } from '../server/src/types.js'
+
+// load the repo-root .env no matter what cwd the script is started from
+dotenv.config({ path: join(dirname(fileURLToPath(import.meta.url)), '..', '.env') })
 
 const CLI = process.env.SLASHDOCS_CLI || 'slashdocs'
 const DOCS_DIR = process.env.TWOMODEL_DOCS_DIR || '/tmp/arl-twomodel-docs'
