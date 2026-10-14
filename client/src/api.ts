@@ -1,0 +1,29 @@
+async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { 'content-type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  })
+  const text = await res.text()
+  let json: any = null
+  try {
+    json = JSON.parse(text)
+  } catch {
+    /* non-JSON error body */
+  }
+  if (!res.ok || json?.error) {
+    throw new Error(json?.error ?? `HTTP ${res.status} ${res.statusText}: ${text.slice(0, 500)}`)
+  }
+  return json as T
+}
+
+export const api = {
+  testConnection: (model: any) => req<{ ok: boolean; detail: string }>('POST', '/api/test-connection', model),
+  createRun: (body: any) => req<any>('POST', '/api/runs', body),
+  getRun: (id: string) => req<any>('GET', `/api/runs/${id}`),
+  listRuns: () => req<{ items: any[] }>('GET', '/api/runs'),
+  author: (id: string) => req<any>('POST', `/api/runs/${id}/author`),
+  comments: (id: string) => req<any>('POST', `/api/runs/${id}/comments`),
+  revise: (id: string) => req<any>('POST', `/api/runs/${id}/revise`),
+  scorecard: (id: string) => req<any>('POST', `/api/runs/${id}/scorecard`),
+}
