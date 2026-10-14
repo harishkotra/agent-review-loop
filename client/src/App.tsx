@@ -298,8 +298,9 @@ export default function App() {
                 ))}
               </div>
               {rec.example && (
-                <div className="muted" style={{ marginBottom: 10 }}>
-                  read-only example (run {rec.id}) — the Verdicts and Scorecard tabs show its real measured results. Create your own run in Setup.
+                <div className="err" style={{ marginBottom: 10 }}>
+                  read-only example (run {rec.id}) — verdicts and metrics are real recorded results, but comments
+                  here do nothing. Create your own run in Setup to drive the agent.
                 </div>
               )}
               <div className="grid">
@@ -329,7 +330,7 @@ export default function App() {
                         title="slashdocs blocks iframe embedding by design; this opens the viewer in a window sized to sit beside this app"
                         onClick={() => window.open(rec.doc_url, 'arl-viewer', 'width=780,height=1000,left=1180,top=40')}
                       >
-                        ⧉ open viewer beside this window
+                        ⧉ open {rec.doc_id} beside this window
                       </button>
                     )}
                   </div>
