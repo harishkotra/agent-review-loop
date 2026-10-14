@@ -16,6 +16,9 @@ export default function App() {
   const [existingDoc, setExistingDoc] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [filter, setFilter] = useState<string>('all')
+  const [liveCount, setLiveCount] = useState<number | null>(null)
+  const [badgeCount, setBadgeCount] = useState(0)
+  const prevCount = useRef<number | null>(null)
   const poll = useRef<number | null>(null)
 
   useEffect(() => saveSettings(settings), [settings])
@@ -35,6 +38,32 @@ export default function App() {
       return () => { if (poll.current) clearInterval(poll.current) }
     }
   }, [busy, runId, refresh])
+
+  // live comment badge: poll the CLI while the Run tab is open; the badge
+  // counts comments that arrived since the last observation or re-check
+  useEffect(() => {
+    setLiveCount(null)
+    setBadgeCount(0)
+    prevCount.current = null
+    if (busy || tab !== 'run' || !runId || !data?.record?.doc_id) return
+    let stop = false
+    const tick = async () => {
+      try {
+        const r = await api.commentsCount(runId)
+        if (stop || typeof r.open_actionable !== 'number') return
+        if (prevCount.current !== null && r.open_actionable > prevCount.current) {
+          setBadgeCount(b => b + (r.open_actionable - prevCount.current!))
+        }
+        prevCount.current = r.open_actionable
+        setLiveCount(r.open_actionable)
+      } catch {
+        /* transient CLI errors just leave the last count */
+      }
+    }
+    tick()
+    const iv = window.setInterval(tick, 5000)
+    return () => { stop = true; clearInterval(iv) }
+  }, [busy, tab, runId, data?.record?.doc_id])
 
   async function guard(fn: () => Promise<void>, label: string) {
     setError(null)
@@ -69,6 +98,8 @@ export default function App() {
   }
 
   async function recheck() {
+    setBadgeCount(0)
+    prevCount.current = null
     await guard(async () => {
       await api.comments(runId!)
     }, 'pull comments')
@@ -198,8 +229,13 @@ export default function App() {
                     {rec.doc_url && (
                       <div className="muted">viewer: <a href={rec.doc_url} target="_blank" rel="noreferrer">{rec.doc_url}</a></div>
                     )}
-                    <button className="btn" disabled={!!busy || !rec.doc_id} onClick={recheck}>
-                      2. Re-check comments ({actionable.length} unresolved actionable)
+                    <button
+                      className={'btn' + (badgeCount > 0 ? ' primary' : '')}
+                      disabled={!!busy || !rec.doc_id}
+                      onClick={recheck}
+                    >
+                      2. Re-check comments ({liveCount ?? actionable.length} unresolved actionable)
+                      {badgeCount > 0 && <span className="badge-new"> {badgeCount} new</span>}
                     </button>
                     <button className="btn" disabled={!!busy || actionable.length === 0} onClick={revise}>
                       3. Run revision agent + score
@@ -207,7 +243,7 @@ export default function App() {
                   </div>
                   <p className="muted" style={{ marginTop: 10 }}>
                     Open the viewer link, select the exact words you want changed, and leave anchored comments.
-                    Then come back and press "Re-check comments".
+                    This panel polls the CLI every 5s — the badge lights up as soon as you post.
                   </p>
                 </div>
                 <div className="panel">

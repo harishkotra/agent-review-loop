@@ -102,3 +102,13 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .row > * { flex: 1; }
 .row > .fixed { flex: 0 0 auto; }
+.badge-new {
+  background: var(--green);
+  color: #0d1117;
+  font-weight: 700;
+  border-radius: 9px;
+  padding: 0 7px;
+  font-size: 11px;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: 0.55; } }

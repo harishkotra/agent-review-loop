@@ -24,6 +24,7 @@ export const api = {
   listRuns: () => req<{ items: any[] }>('GET', '/api/runs'),
   author: (id: string) => req<any>('POST', `/api/runs/${id}/author`),
   comments: (id: string) => req<any>('POST', `/api/runs/${id}/comments`),
+  commentsCount: (id: string) => req<{ open_actionable: number; error?: string }>('GET', `/api/runs/${id}/comments/count`),
   revise: (id: string) => req<any>('POST', `/api/runs/${id}/revise`),
   scorecard: (id: string) => req<any>('POST', `/api/runs/${id}/scorecard`),
 }

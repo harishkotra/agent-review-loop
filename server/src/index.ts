@@ -142,6 +142,19 @@ app.post('/api/runs/:id/author', async c => {
   }
 })
 
+/** Lightweight live count for the review badge: open actionable comments, no writes. */
+app.get('/api/runs/:id/comments/count', async c => {
+  const id = c.req.param('id')
+  const rec = loadRecord(id)
+  if (!rec.doc_id) return c.json({ error: 'no document published yet' }, 400)
+  try {
+    const all = await sd.docsCommentsList(rec.slashdocs, rec.doc_id, 'open')
+    return c.json({ open_actionable: all.filter(isActionable).length })
+  } catch (err: any) {
+    return c.json({ error: String(err?.stderr ?? err?.message ?? err) }, 500)
+  }
+})
+
 /** Re-check comments: pull live, save comments.before.json */
 app.post('/api/runs/:id/comments', async c => {
   const id = c.req.param('id')

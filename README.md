@@ -108,7 +108,7 @@ first; run aborted without clobbering` and stops. Never a blind-retry loop.
 
 1. **Setup** — mode, model config, brief or existing document id.
 2. **Author v1** — the LLM writes one self-contained HTML file following `slashdocs guidelines all`; published; viewer URL shown.
-3. **Human review** — manual and explicit: open the doc, select words, comment. "Re-check comments" pulls `comments.before.json`.
+3. **Human review** — manual and explicit: open the doc, select words, comment. The Run panel polls the CLI every 5 s and lights a "N new" badge when you post; "Re-check comments" pulls `comments.before.json`.
 4. **Revision run** — the agent gets the document and only the unresolved actionable comments, with exactly four tools: `list_comments()`, `pull_document()`, `resolve_comment(comment_id)`, `push_version(html_path, summary)` (summary: one line per comment, `<comment id>: <what changed>`).
 5. **Verify and score** — verdicts and metrics computed from the actual v1/v2 text.
 6. **Report** — scorecard in the UI, plus a self-contained HTML scorecard published back to slashdocs as its own document.
