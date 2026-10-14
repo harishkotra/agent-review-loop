@@ -88,6 +88,23 @@ export default function App() {
     }, 'publish scorecard')
   }
 
+  const [runs, setRuns] = useState<any[]>([])
+  const refreshRuns = useCallback(() => {
+    api.listRuns().then(r => setRuns(r.items ?? [])).catch(() => {})
+  }, [])
+  useEffect(() => { refreshRuns() }, [refreshRuns, busy])
+
+  async function openRun(id: string) {
+    setRunId(id)
+    setError(null)
+    try {
+      setData(await api.getRun(id))
+      setTab('run')
+    } catch (e: any) {
+      setError(String(e?.message ?? e))
+    }
+  }
+
   const rec = data?.record
   const phaseIdx = rec ? (rec.phase === 'setup' ? 0 : rec.phase === 'authored' || rec.phase === 'review' ? (rec.phase === 'review' ? 1 : 0) : rec.phase === 'revised' ? 2 : 3) : 0
   const verdicts: any[] = data?.verdicts ?? []
@@ -128,6 +145,23 @@ export default function App() {
                 </button>
               </div>
               {runId && <p className="muted">run {runId} created — switch to Run to author v1.</p>}
+              <h2 style={{ marginTop: 16 }}>Recent runs</h2>
+              {runs.length === 0 && <p className="muted">none on disk yet</p>}
+              {runs.length > 0 && (
+                <table>
+                  <tbody>
+                    {runs.slice(0, 8).map(r => (
+                      <tr key={r.id}>
+                        <td>{r.id}</td>
+                        <td>{r.phase}</td>
+                        <td>{r.doc_id ?? '—'}</td>
+                        <td>{r.model?.model}</td>
+                        <td><button className="btn" onClick={() => openRun(r.id)}>open</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
             <div className="panel">
               <h2>Active configuration</h2>

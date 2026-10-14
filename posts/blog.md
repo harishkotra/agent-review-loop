@@ -26,23 +26,29 @@ agent-review-loop answers with five numbers:
 
 ## What the measurements caught
 
-The plumbing catches lies by design. In a plumbing run with a small local model, the
-agent claimed all four comments addressed — and pushed nothing. The harness printed,
-verbatim, four times:
+The very first plumbing run caught a lie. A small local model claimed all four
+comments addressed — and pushed nothing. The harness printed, verbatim, four times:
 
 > VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED
 
 Claim accuracy: 0%. Attribution: 0%. The instrument works: it measured the gap between
 what the model said and what the model did.
 
+The clean run with Particle's `deepseek-v4.1-flash` scored **75% attribution
+(3/4), 0.2% collateral churn, 75% claim accuracy, 18,552 tokens per attributed fix,
+1 round to converge** — and still caught one false claim: the model said "addressed"
+on a span that was byte-identical after its push.
+
 In the deliberate stale-anchor test — a human deletes a commented sentence between
 versions — the harness refuses to silently re-anchor to a similar-looking span. It
 prints `ATTRIBUTION: STALE ANCHOR - quote not found in current version; comment left
-unresolved`, excludes the comment from the denominator, and leaves it open.
+unresolved`, excludes the comment from the denominator, and leaves it open in slashdocs.
 
-Two different models on byte-identical documents with identical comments produce two
-different scorecards — different attribution rates, different token totals. That's the
-point: the numbers are measurements, not decorations.
+The two-model test ran byte-identical documents with identical comments through
+`deepseek-v4.1-flash` and `glm5.3flash`. Two different scorecards: 0% vs 50%
+attribution, 18,036 vs 29,587 tokens. And glm5.3flash showed the failure mode
+attribution alone would miss — 50% attribution but **46.9% collateral churn**: it
+fixed two anchored spans while rewriting large unanchored stretches of the document.
 
 ## How it works
 

@@ -1,7 +1,5 @@
 # agent-review-loop
 
-**Built By [Harish Kotra](https://harishkotra.me)** · [Checkout my other builds](https://dailybuild.xyz)
-
 A review-loop harness that measures whether an AI agent actually fixed what a
 human reviewer asked it to fix in a [slashdocs](https://github.com/razorpay/slashdocs) document.
 
@@ -148,7 +146,91 @@ npx tsx scripts/two-model-test.ts # identical doc+comments, two models
 
 ### Test case results (real numbers)
 
-_Populated by live runs — see below._
+All three cases were run end to end against a locally served slashdocs document
+with Particle `deepseek-v4.1-flash` (and `glm5.3flash` for case 3). Output below is
+pasted from the actual runs; every number traces to `runs/<runId>/`.
+
+**1. Clean run** (`npm run smoke`, run `b0ead130`) — v1 authored from brief, four
+anchored comments on different sentences, agent revised:
+
+```
+Attribution rate         75.0%          3 edited / 4 actionable (stale anchors excluded)
+Collateral churn         0.2%           1 of 652 changed chars outside anchors
+Claim accuracy           75.0%          3/4 claims match computed verdicts
+Cost per attributed fix  18552 tokens   55655 tokens total (37114 prompt + 18541 completion) / 3 edited
+Rounds to converge       1              1 push(es) until no unresolved actionable comments remained
+
+verdicts: W5Z2RT=untouched, Q2QNHA=edited, E73BWM=edited, LF4HDU=edited
+claim mismatches:
+  W5Z2RTFJFCGMEHZTBYBY3DBU4W: VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED
+```
+
+Attribution ≥ 3/4 ✓ and churn < 35% ✓ — and the instrument caught the model claiming
+a fix on a span it left byte-identical.
+
+A second, later `npm run smoke` (run `07e4a1d4`) shows the run-to-run variance the
+instrument exists to expose — same pipeline, different numbers:
+
+```
+[smoke] run 07e4a1d4 created
+[smoke] v1 published: doc=07e4a1d4.html url=http://slashdocs.localhost/app/d/07e4a1d4.html
+===== SMOKE METRICS (computed from the v1/v2 diff) =====
+Attribution rate         75.0%          3 edited / 4 actionable (stale anchors excluded)
+Collateral churn         37.1%          170 of 458 changed chars outside anchors
+Claim accuracy           N/A            N/A — agent returned no structured claims
+Cost per attributed fix  15022 tokens   45066 tokens total (30343 prompt + 14723 completion) / 3 edited
+Rounds to converge       1              1 push(es) until no unresolved actionable comments remained
+verdicts: GLMUXU=edited, EO3QWK=deleted, NZAD23=edited, 7PEDUC=edited
+[smoke] scorecard published: http://slashdocs.localhost/app/d/07e4a1d4-scorecard.html
+[smoke] evidence bundle: runs/07e4a1d4/
+```
+
+Here the agent deleted one anchored sentence outright (`deleted`, not counted as
+addressed) and reflowed 170 characters outside any anchor — churn 37.1%, above the
+35% clean-run bar. Reported as measured, not as hoped.
+
+**2. Stale anchor** (`scripts/stale-test.ts`, run `804627c0`) — comment on a v1
+sentence, human pushes a version deleting it, then the agent runs:
+
+```
+[stale] version at comment time: 0d52ddb20a1d9bdd
+[stale] human push rotated version to 0e711c5c21294719; doomed sentence removed
+doomed comment verdict: stale_anchor
+on-screen string: ATTRIBUTION: STALE ANCHOR - quote not found in current version; comment left unresolved
+other comment verdict: untouched
+attribution: 0.0% (0 edited / 1 actionable (stale anchors excluded))
+doomed comment status in slashdocs after run: open
+STALE TEST PASS
+```
+
+Exact string printed ✓, comment excluded from the denominator ✓, still unresolved in
+slashdocs ✓, no silent re-anchor ✓.
+
+**3. Two models** (`scripts/two-model-test.ts`) — byte-identical document
+(`runs/b0ead130/v1.html`) with the same four comments on each copy:
+
+```
+deepseek-v4.1-flash  (run d18dab6c)
+  Attribution rate         0.0%           0 edited / 4 actionable (stale anchors excluded)
+  Collateral churn         N/A            N/A — v1 and v2 text are identical; nothing changed
+  Claim accuracy           100.0%         4/4 claims match computed verdicts
+  Cost per attributed fix  N/A            N/A — zero attributed fixes; division undefined
+  Rounds to converge       0+             N/A — did not converge
+
+glm5.3flash  (run ff2e62d3)
+  Attribution rate         50.0%          2 edited / 4 actionable (stale anchors excluded)
+  Collateral churn         46.9%          202 of 431 changed chars outside anchors
+  Claim accuracy           N/A            N/A — agent returned no structured claims
+  Cost per attributed fix  14794 tokens   29587 tokens total (24341 prompt + 5246 completion) / 2 edited
+  Rounds to converge       1              1 push(es) until no unresolved actionable comments remained
+
+OK: different measurements — 18036 vs 29587 tokens, 0.0% vs 50.0%
+```
+
+Two different attribution rates and two different token totals on identical input —
+the harness is measuring the models, not itself. Note glm5.3flash's 46.9% churn: it
+fixed two anchors while rewriting large unanchored stretches — exactly the failure
+mode attribution rate alone would miss.
 
 ## Framework swap note
 
@@ -164,7 +246,3 @@ implementation; Mastra is documented, not built.
 - **Single-run sample sizes.** One run is one observation. Attribution rate on 4 comments is a ratio of small integers — treat differences of one comment as noise.
 - **CLI-created comments carry only `quote`** (no offsets); browser comments carry full anchors. Offset-based v1 location only applies to browser-made comments.
 - Token totals are what the provider's usage fields report; some local runtimes under-report.
-
-## License
-
-MIT

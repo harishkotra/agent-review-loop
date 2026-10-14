@@ -6,9 +6,9 @@
  * Run: npx tsx scripts/stale-test.ts
  */
 import 'dotenv/config'
-import { JSDOM } from 'jsdom'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { JSDOM } from 'jsdom'
 import { app } from '../server/src/index.js'
 import * as sd from '../server/src/slashdocs.js'
 import { runDir } from '../server/src/runs.js'
@@ -19,6 +19,25 @@ const DOCS_DIR = process.env.STALE_DOCS_DIR || '/tmp/arl-stale-docs'
 const BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.particle.ai/v1'
 const API_KEY = process.env.PARTICLE_API_KEY || process.env.OPENAI_API_KEY || ''
 const MODEL = process.env.OPENAI_MODEL || 'deepseek-v4.1-flash'
+
+function bodyText(html: string): string {
+  return new JSDOM(html).window.document.body?.textContent ?? ''
+}
+
+/** sentences that appear verbatim in the raw HTML (no inline markup inside), so a plain string replace is guaranteed to hit */
+function pickSentences(html: string, n: number): string[] {
+  const text = bodyText(html).replace(/\s+/g, ' ')
+  const sentences = text
+    .split(/(?<=[.!?]) /)
+    .map(s => s.trim())
+    .filter(s => s.length >= 45 && s.length <= 220 && /[a-z]{3}/.test(s) && html.includes(s))
+  const out: string[] = []
+  for (const s of sentences) {
+    if (!out.some(o => o.includes(s) || s.includes(o))) out.push(s)
+    if (out.length >= n) break
+  }
+  return out
+}
 
 async function post(path: string, body?: unknown): Promise<any> {
   const res = await app.request(path, {
@@ -46,15 +65,7 @@ async function main() {
   console.log(`[stale] run ${rec.id}, doc ${docId}`)
 
   const v1Html = readFileSync(join(runDir(rec.id), 'v1.html'), 'utf8')
-  const dom = new JSDOM(v1Html)
-  const paras = Array.from(dom.window.document.querySelectorAll('body p')) as HTMLElement[]
-  const sentences: string[] = []
-  for (const p of paras) {
-    const t = (p.textContent ?? '').replace(/\s+/g, ' ').trim()
-    const s = t.split(/(?<=[.!?]) /).find(x => x.length >= 45 && !/[“”]/.test(x))
-    if (s) sentences.push(s)
-    if (sentences.length >= 2) break
-  }
+  const sentences = pickSentences(v1Html, 2)
   if (sentences.length < 2) throw new Error('need two anchorable sentences')
   const [staleSentence, okSentence] = sentences
   const show = await sd.docsShow(slashdocs, docId)
@@ -69,13 +80,16 @@ async function main() {
   })
   console.log(`[stale] comments ${cStale.id} (doomed) and ${cOk.id}`)
 
-  // human pushes a v2 that DELETES the doomed sentence (replaces it with unrelated text)
+  // human pushes a v2 that DELETES the doomed sentence (verbatim in raw HTML,
+  // so a plain replace is guaranteed to hit)
   const pulled = join(runDir(rec.id), 'human_v2.html')
   await sd.docsPull(slashdocs, docId, pulled)
-  let humanHtml = readFileSync(pulled, 'utf8')
-  humanHtml = humanHtml.replace(staleSentence, 'This paragraph was restructured by a human reviewer.')
-  writeAndPush(slashdocs, docId, humanHtml, pulled)
+  const before = readFileSync(pulled, 'utf8')
+  const humanHtml = before.replace(staleSentence, 'This paragraph was restructured by a human reviewer.')
+  if (humanHtml === before) throw new Error('human push aborted: doomed sentence not found in pulled HTML')
+  await writeAndPush(slashdocs, docId, humanHtml, pulled)
   const show2 = await sd.docsShow(slashdocs, docId)
+  if (show2.current_version_id === versionId) throw new Error('human push did not rotate the version id')
   console.log(`[stale] human push rotated version to ${show2.current_version_id}; doomed sentence removed`)
 
   await post(`/api/runs/${rec.id}/comments`)

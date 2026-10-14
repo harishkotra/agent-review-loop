@@ -34,19 +34,17 @@ function bodyText(html: string): string {
 
 /** pick up to n sentences from distinct paragraphs, long enough to anchor well */
 function pickSentences(html: string, n: number): string[] {
-  const dom = new JSDOM(html)
-  const paras = Array.from(dom.window.document.querySelectorAll('body p')) as HTMLElement[]
+  const text = bodyText(html).replace(/\s+/g, ' ')
+  const sentences = text
+    .split(/(?<=[.!?]) /)
+    .map(s => s.trim())
+    .filter(s => s.length >= 45 && s.length <= 220 && /[a-z]{3}/.test(s))
   const out: string[] = []
-  for (const p of paras) {
-    const text = (p.textContent ?? '').replace(/\s+/g, ' ').trim()
-    const sentences = text.split(/(?<=[.!?]) /).filter(s => s.length >= 45 && s.length <= 220 && !/[“”]/.test(s))
-    if (sentences.length) {
-      const s = sentences.find(x => /^[A-Z]/.test(x)) ?? sentences[0]
-      if (!out.some(o => o.includes(s) || s.includes(o))) out.push(s)
-    }
+  for (const s of sentences) {
+    if (!out.some(o => o.includes(s) || s.includes(o))) out.push(s)
     if (out.length >= n) break
   }
-  return out.slice(0, n)
+  return out
 }
 
 const COMMENT_BODIES = [

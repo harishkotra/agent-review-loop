@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { AgentReport, ModelConfig, SlashdocsConfig, SdComment } from './types.js'
 import * as sd from './slashdocs.js'
+import { chat } from './llm.js'
 import { runDir, writeArtifact } from './runs.js'
 
 /**
@@ -89,12 +90,12 @@ const SYSTEM_PROMPT = `You are a document revision agent working on one slashdoc
 
 You are given a document and a list of anchored review comments. Address each comment by editing the exact span it is anchored to. Do not restyle, reformat, rename, or rewrite any text that no comment points at. Preserve the document's structure and every element that was not questioned.
 
-Workflow:
-1. Use pull_document to get the current HTML into your run directory and read it.
+Workflow (mandatory order):
+1. Your FIRST action must be a call to the pull_document tool. Never answer in plain text before using tools.
 2. For each comment, find the anchor quote in the document text and rewrite exactly that span to address the reviewer's request.
-3. Use push_version with the full revised HTML and a summary that has one line per comment in the form "<comment id>: <what changed>".
+3. Use push_version with the FULL revised HTML document in the html_path parameter and a summary that has one line per comment in the form "<comment id>: <what changed>". Do not truncate or summarize the HTML; pass the complete document.
 4. Use resolve_comment for each comment you genuinely addressed.
-5. If a comment's quoted text does not exist in the document you were given, do not guess and do not re-anchor it to something similar. Leave it unresolved and report it with claim "stale_anchor".
+5. Only after push_version succeeds may you give a final text answer. If a comment's quoted text does not exist in the document you were given, do not guess and do not re-anchor it to something similar. Leave it unresolved and report it with claim "stale_anchor".
 
 Return a structured report covering every comment you were given. Do not claim a fix you did not make; the harness re-derives every verdict from the diff.`
 
@@ -187,8 +188,8 @@ async function doRevise(input: ReviseInput): Promise<ReviseResult> {
     name: 'reviser',
     instructions: SYSTEM_PROMPT,
     model: input.model.model,
+    modelSettings: { providerData: { reasoning_effort: 'low' } } as any,
     tools: [listComments, pullDocument, resolveComment, pushVersion],
-    outputType: AgentReportSchema,
   })
 
   const commentLines = input.comments
@@ -201,9 +202,20 @@ Viewer: ${input.viewerUrl ?? 'n/a'}
 Unresolved actionable comments to address (fix exactly these anchored spans):
 ${commentLines}
 
-Pull the document, edit only the anchored spans, push the new version with a one-line-per-comment summary, resolve the comments you addressed, and return the structured report.`
+Work the loop with your tools. Your first action MUST be a pull_document tool call.
+Edit only the anchored spans, push the new version with a one-line-per-comment
+summary ("<comment id>: <what changed>"), and resolve the comments you genuinely
+addressed. Do not produce a final answer before push_version has succeeded.`
 
-  const result = await run(agent, userMsg, { maxTurns: 24 })
+  let result = await run(agent, userMsg, { maxTurns: 24 })
+  // nudge retry: models sometimes narrate intent instead of acting
+  let nudges = 0
+  while (pushes === 0 && nudges < 2) {
+    nudges += 1
+    input.onStep(`nudge ${nudges}: agent produced no push; last reply: ${String(result.finalOutput ?? '').replace(/\s+/g, ' ').slice(0, 200)}`)
+    result = await run(agent, userMsg + '\n\nREMINDER: previous attempts called zero tools. Call pull_document first, then push_version with the FULL revised HTML as html_path.', { maxTurns: 24 })
+  }
+  input.onStep(`agent finished: pushes=${pushes} replies=${(result.rawResponses ?? []).length} last="${String(result.finalOutput ?? '').replace(/\s+/g, ' ').slice(0, 160)}"`)
 
   let requests = 0
   let inputTokens = 0
@@ -214,7 +226,37 @@ Pull the document, edit only the anchored spans, push the new version with a one
     inputTokens += u.inputTokens ?? 0
     outputTokens += u.outputTokens ?? 0
   }
-  const report = (result.finalOutput ?? null) as AgentReport | null
+
+  // Phase 2: the structured report, enforced with response_format json_object.
+  // The harness re-derives every verdict from the diff; this is only the agent's claim.
+  let report: AgentReport | null = null
+  try {
+    const rep = await chat(
+      input.model,
+      [
+        {
+          role: 'system',
+          content:
+            'You are the same revision agent. Report, for every comment you were given, what you actually did. Do not claim a fix you did not make. Use claim "stale_anchor" when a comment\'s quoted text did not exist in the document you were given. Return JSON: {"comments":[{"comment_id","claim","change_summary","rationale"}],"notes"}.',
+        },
+        {
+          role: 'user',
+          content: `Comments you were given:\n${commentLines}\n\nYour working transcript ended with:\n${String(result.finalOutput ?? '').slice(0, 6000)}\n\nTool activity: pushes=${pushes}. Produce the JSON report now.`,
+        },
+      ],
+      { json: true, temperature: 0, reasoningEffort: 'low', maxTokens: 4000 },
+    )
+    inputTokens += rep.usage.prompt_tokens
+    outputTokens += rep.usage.completion_tokens
+    requests += 1
+    try {
+      report = AgentReportSchema.parse(JSON.parse(rep.text))
+    } catch {
+      report = null
+    }
+  } catch {
+    report = null
+  }
   trace.dump(join(dir, 'trace.json'))
   writeArtifact(input.runId, 'agent-claims.json', JSON.stringify(report ?? { comments: [], notes: 'no structured report returned' }, null, 2))
 

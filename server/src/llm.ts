@@ -18,7 +18,7 @@ function url(baseUrl: string, path: string): string {
 export async function chat(
   cfg: ModelConfig,
   messages: { role: string; content: string }[],
-  opts: { json?: boolean; temperature?: number; maxTokens?: number; timeoutMs?: number } = {},
+  opts: { json?: boolean; temperature?: number; maxTokens?: number; timeoutMs?: number; reasoningEffort?: string } = {},
 ): Promise<ChatResult> {
   const body: any = {
     model: cfg.model,
@@ -27,6 +27,7 @@ export async function chat(
   }
   if (opts.json) body.response_format = { type: 'json_object' }
   if (opts.maxTokens) body.max_tokens = opts.maxTokens
+  if (opts.reasoningEffort) body.reasoning_effort = opts.reasoningEffort
   const res = await fetch(url(cfg.baseUrl, '/chat/completions'), {
     method: 'POST',
     headers: {
@@ -41,7 +42,12 @@ export async function chat(
     throw new Error(`HTTP ${res.status} ${res.statusText} from ${url(cfg.baseUrl, '/chat/completions')}: ${text.slice(0, 2000)}`)
   }
   const json: any = await res.json()
-  const text: string = json?.choices?.[0]?.message?.content ?? ''
+  const msg = json?.choices?.[0]?.message
+  const text: string = msg?.content ?? msg?.reasoning_content ?? ''
+  if (!text.trim()) {
+    const u = json?.usage
+    throw new Error(`model returned empty content (finish_reason=${json?.choices?.[0]?.finish_reason}, usage=${JSON.stringify(u)}); reasoning tokens may have consumed the budget`)
+  }
   const usage: ChatUsage = json?.usage ?? { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 }
   return { text, usage }
 }

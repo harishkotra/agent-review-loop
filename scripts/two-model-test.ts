@@ -33,14 +33,19 @@ async function post(path: string, body?: unknown): Promise<any> {
   return json
 }
 
+function bodyText(html: string): string {
+  return new JSDOM(html).window.document.body?.textContent ?? ''
+}
+
 function pickSentences(html: string, n: number): string[] {
-  const dom = new JSDOM(html)
-  const paras = Array.from(dom.window.document.querySelectorAll('body p')) as HTMLElement[]
+  const text = bodyText(html).replace(/\s+/g, ' ')
+  const sentences = text
+    .split(/(?<=[.!?]) /)
+    .map(s => s.trim())
+    .filter(s => s.length >= 45 && s.length <= 220 && /[a-z]{3}/.test(s))
   const out: string[] = []
-  for (const p of paras) {
-    const text = (p.textContent ?? '').replace(/\s+/g, ' ').trim()
-    const s = text.split(/(?<=[.!?]) /).find(x => x.length >= 45 && x.length <= 220 && !/[“”]/.test(x))
-    if (s && !out.some(o => o.includes(s) || s.includes(o))) out.push(s)
+  for (const s of sentences) {
+    if (!out.some(o => o.includes(s) || s.includes(o))) out.push(s)
     if (out.length >= n) break
   }
   return out

@@ -2,6 +2,7 @@
   "name": "agent-review-loop",
   "private": true,
   "version": "0.1.0",
+  "author": "Harish Kotra",
   "type": "module",
   "workspaces": [
     "server",
