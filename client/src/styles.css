@@ -83,6 +83,9 @@ th { background: var(--bg); color: var(--dim); text-transform: uppercase; font-s
 .empty { text-align: center; color: var(--dim); padding: 40px 10px; border: 1px dashed var(--border); border-radius: 6px; }
 .pill { display: inline-block; border: 1px solid var(--border); border-radius: 10px; padding: 0 8px; font-size: 11px; margin-right: 4px; }
 .pill.on { border-color: var(--accent); color: var(--accent); }
+.samples { display: flex; flex-wrap: wrap; gap: 5px; }
+.samples .pill { font: inherit; background: var(--bg); color: var(--text); cursor: pointer; padding: 3px 10px; }
+.samples .pill:hover { border-color: var(--accent); color: var(--accent); }
 a { color: var(--accent); }
 .phase { display: flex; gap: 6px; margin-bottom: 12px; }
 .phase span { border: 1px solid var(--border); border-radius: 4px; padding: 2px 10px; color: var(--dim); }

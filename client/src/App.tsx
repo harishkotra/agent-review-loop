@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from './api'
 import { loadSettings, saveSettings, PRESETS, type Settings } from './config'
+import { SAMPLE_BRIEFS } from './samples'
 
 type Tab = 'setup' | 'run' | 'verdicts' | 'scorecard' | 'publish'
 const PHASES = ['author', 'review', 'revise', 'verify'] as const
@@ -166,6 +167,12 @@ export default function App() {
           <div className="grid">
             <div className="panel">
               <h2>New run</h2>
+              <label>Try a real-world brief</label>
+              <div className="samples">
+                {SAMPLE_BRIEFS.map(s => (
+                  <button key={s.name} className="pill" onClick={() => { setBrief(s.brief); setExistingDoc('') }}>{s.name}</button>
+                ))}
+              </div>
               <label>Document brief (leave empty and fill the id to review an existing doc)</label>
               <textarea value={brief} onChange={e => setBrief(e.target.value)} placeholder="Release readiness review for checkout-service v2.4: include rollback plan, error budget, open incidents…" />
               <label>…or existing slashdocs document id/path</label>
