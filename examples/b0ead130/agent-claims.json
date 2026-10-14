@@ -1,0 +1,29 @@
+{
+  "comments": [
+    {
+      "comment_id": "W5Z2RTFJFCGMEHZTBYBY3DBU4W",
+      "claim": "addressed",
+      "change_summary": "Expanded the owner field in the meta line from the initial 'R.' to 'Owner: R. Mehta (release manager, accountable for the cut decision)'.",
+      "rationale": "The reviewer asked for the action owner to be named explicitly; the abbreviated initial was replaced with a full name plus role and accountability, so the owner is unambiguous."
+    },
+    {
+      "comment_id": "Q2QNHAXAGNKRKOIOQCSJHPCYAC",
+      "claim": "addressed",
+      "change_summary": "Replaced the vague reviewer qualifier with a concrete count and threshold: '3 reviewers; with the release manager as the 4th approver, all 4 sign-offs are required before the cut'.",
+      "rationale": "The reviewer asked for a concrete number or threshold instead of a vague qualifier; the reviewer list now states an explicit count and the exact sign-off requirement."
+    },
+    {
+      "comment_id": "E73BWMNB2TW7HZUCAJFYR2ZULB",
+      "claim": "addressed",
+      "change_summary": "Rewrote the summary sentence to specify the retry change (single attempt to up to three attempts with exponential backoff and full jitter) and the idempotency key (client-generated, on the capture path).",
+      "rationale": "The reviewer flagged the original summary as ambiguous; the rewrite pins down the retry policy and the origin/placement of the idempotency key so the sentence can only be read one way."
+    },
+    {
+      "comment_id": "LF4HDU6L6RN5S3QNRNNNLERVFU",
+      "claim": "addressed",
+      "change_summary": "Added the consequence of skipping the step: rollback to v2.3.7 could fail or strand the API and database on an incompatible version.",
+      "rationale": "The reviewer asked for the risk if the step is skipped; the statement of no API/schema/infrastructure changes is now followed by the concrete rollback risk."
+    }
+  ],
+  "notes": "All four quoted spans were located verbatim in the document I was given, so no comment was marked stale_anchor. All four edits were applied and pushed as version 10eb3afd1c163afd (pushes=1). No other text, styling, or structure was changed. One minor observation: the quoted anchor for Q2QNHAXAGNKRKOIOQCSJHPCYAC in the comment text ends with 'SRE lead 1.' while the span I edited read '…Reviewers: on-call primary, payments lead, SRE lead'; I treated these as the same reviewer-list line and edited that line, but I did not independently verify the trailing '1'."
+}

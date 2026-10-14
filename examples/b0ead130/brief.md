@@ -1,0 +1,1 @@
+Release readiness review for checkout-service v2.4. Sections: summary, scope of change, error budget status, rollback plan, open incidents, monitoring gaps, sign-off. Write it as a release manager briefing the on-call team. Make concrete claims a reviewer could question.

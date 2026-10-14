@@ -1,0 +1,103 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>agent-review-loop scorecard b0ead130</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 14px/1.5 system-ui, sans-serif; margin: 2rem auto; max-width: 1100px; padding: 0 1rem; color: light-dark(#1b1f23, #e6edf3); background: light-dark(#fff, #0d1117); }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 2rem; }
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+  .metric { border: 1px solid light-dark(#d0d7de, #30363d); border-radius: 8px; padding: 12px; }
+  .mv { font-size: 2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ml { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; opacity: .7; }
+  .md { font-size: .75rem; opacity: .6; margin-top: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: .8rem; }
+  th, td { border: 1px solid light-dark(#d0d7de, #30363d); padding: 6px 8px; text-align: left; vertical-align: top; }
+  th { background: light-dark(#f6f8fa, #161b22); }
+  .v { font-weight: 700; } .warn { color: #f85149; font-weight: 600; }
+  .stale { border-left: 3px solid #8b949e; padding: 8px 12px; background: light-dark(#f6f8fa, #161b22); margin: 8px 0; font-family: ui-monospace, monospace; font-size: .8rem; }
+  .meta { opacity: .65; font-size: .8rem; }
+</style></head>
+<body>
+<h1>agent-review-loop — scorecard</h1>
+<p class="meta">run b0ead130 · doc <a href="http://slashdocs.localhost/app/d/b0ead130.html">b0ead130.html</a> · mode local · model deepseek-v4.1-flash @ https://api.particle.ai/v1 · 2026-10-14T15:35:01.224Z</p>
+<h2>Metrics</h2>
+<div class="metrics">
+<div class="metric"><div class="mv" style="">75.0%</div><div class="ml">Attribution rate</div><div class="md">3 edited / 4 actionable (stale anchors excluded)</div></div>
+<div class="metric"><div class="mv" style="">0.2%</div><div class="ml">Collateral churn</div><div class="md">1 of 652 changed chars outside anchors</div></div>
+<div class="metric"><div class="mv" style="">75.0%</div><div class="ml">Claim accuracy</div><div class="md">3/4 claims match computed verdicts</div></div>
+<div class="metric"><div class="mv" style="">18552 tokens</div><div class="ml">Cost per attributed fix</div><div class="md">55655 tokens total (37114 prompt + 18541 completion) / 3 edited</div></div>
+<div class="metric"><div class="mv" style="">1</div><div class="ml">Rounds to converge</div><div class="md">1 push(es) until no unresolved actionable comments remained</div></div>
+</div>
+<h2>Per-comment verdicts</h2>
+<table>
+<tr><th>verdict</th><th>anchor quote</th><th>human comment</th><th>agent claim</th><th>before @ anchor</th><th>after @ anchor</th><th>note</th></tr>
+<tr>
+  <td><span class="v" style="color:#d29922">untouched</span></td>
+  <td>Release Readiness Review — checkout-service v2.4 Release manager briefing for the on-call team · Target cut: Thu 14:00 UTC · Owner: R.</td>
+  <td>Name the owner of this action explicitly.</td>
+  <td>addressed</td>
+  <td> Release Readiness Review — checkout-service v2.4 Release manager briefing for the on-call team · Target cut: Thu 14:00 UTC · Owner: R. Mehta · Reviewers: on-call primary, pay…</td>
+  <td> Release Readiness Review — checkout-service v2.4 Release manager briefing for the on-call team · Target cut: Thu 14:00 UTC · Owner: R. Mehta (release manager, accountable for…</td>
+  <td><span class="warn">VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED</span></td>
+</tr>
+<tr>
+  <td><span class="v" style="color:#3fb950">edited</span></td>
+  <td>Mehta · Reviewers: on-call primary, payments lead, SRE lead 1.</td>
+  <td>Give the concrete number or threshold here instead of a vague qualifier.</td>
+  <td>addressed</td>
+  <td>…· Target cut: Thu 14:00 UTC · Owner: R. Mehta · Reviewers: on-call primary, payments lead, SRE lead 1. Summary checkout-service v2.4 is a lo…</td>
+  <td>…· Target cut: Thu 14:00 UTC · Owner: R. Mehta (release manager, accountable for the cut decision) · Reviewers: on-call primary, payments lead, and SRE lead (3 reviewers; with the release manager as the 4th app…</td>
+  <td>fuzzy re-anchor, similarity 0.62</td>
+</tr>
+<tr>
+  <td><span class="v" style="color:#3fb950">edited</span></td>
+  <td>Summary checkout-service v2.4 is a low-risk release: it changes how we retry calls to the card vault and adds an idempotency key to the capture path.</td>
+  <td>This is ambiguous — rewrite so it can only be read one way.</td>
+  <td>addressed</td>
+  <td>… primary, payments lead, SRE lead 1. Summary checkout-service v2.4 is a low-risk release: it changes how we retry calls to the card vault and adds an idempotency key to the capture path. No public API contract changes, no sche…</td>
+  <td>…offs are required before the cut) 1. Summary checkout-service v2.4 is a low-risk release: it changes the card-vault retry policy from a single attempt to up to three attempts with exponential backoff and full jitter, and it adds a client-generated idempotency key to the capture path. No public API contract changes, no sche…</td>
+  <td>fuzzy re-anchor, similarity 0.68</td>
+</tr>
+<tr>
+  <td><span class="v" style="color:#3fb950">edited</span></td>
+  <td>No public API contract changes, no schema changes that require a down-migration, and no new infrastructure.</td>
+  <td>State the risk if this step is skipped.</td>
+  <td>addressed</td>
+  <td>…an idempotency key to the capture path. No public API contract changes, no schema changes that require a down-migration, and no new infrastructure. I am recommending we proceed with the T…</td>
+  <td>…ed idempotency key to the capture path. No public API contract changes, no schema changes that require a down-migration, and no new infrastructure; if this verification is skipped and any…</td>
+  <td>fuzzy re-anchor, similarity 1.00</td>
+</tr>
+</table>
+
+<h2>Claim mismatches</h2><div class="stale">W5Z2RTFJFCGMEHZTBYBY3DBU4W: VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED</div>
+<h2>Agent report</h2>
+<pre class="meta">{
+  "comments": [
+    {
+      "comment_id": "W5Z2RTFJFCGMEHZTBYBY3DBU4W",
+      "claim": "addressed",
+      "change_summary": "Expanded the owner field in the meta line from the initial 'R.' to 'Owner: R. Mehta (release manager, accountable for the cut decision)'.",
+      "rationale": "The reviewer asked for the action owner to be named explicitly; the abbreviated initial was replaced with a full name plus role and accountability, so the owner is unambiguous."
+    },
+    {
+      "comment_id": "Q2QNHAXAGNKRKOIOQCSJHPCYAC",
+      "claim": "addressed",
+      "change_summary": "Replaced the vague reviewer qualifier with a concrete count and threshold: '3 reviewers; with the release manager as the 4th approver, all 4 sign-offs are required before the cut'.",
+      "rationale": "The reviewer asked for a concrete number or threshold instead of a vague qualifier; the reviewer list now states an explicit count and the exact sign-off requirement."
+    },
+    {
+      "comment_id": "E73BWMNB2TW7HZUCAJFYR2ZULB",
+      "claim": "addressed",
+      "change_summary": "Rewrote the summary sentence to specify the retry change (single attempt to up to three attempts with exponential backoff and full jitter) and the idempotency key (client-generated, on the capture path).",
+      "rationale": "The reviewer flagged the original summary as ambiguous; the rewrite pins down the retry policy and the origin/placement of the idempotency key so the sentence can only be read one way."
+    },
+    {
+      "comment_id": "LF4HDU6L6RN5S3QNRNNNLERVFU",
+      "claim": "addressed",
+      "change_summary": "Added the consequence of skipping the step: rollback to v2.3.7 could fail or strand the API and database on an incompatible version.",
+      "rationale": "The reviewer asked for the risk if the step is skipped; the statement of no API/schema/infrastructure changes is now followed by the concrete rollback risk."
+    }
+  ],
+  "notes": "All four quoted spans were located verbatim in the document I was given, so no comment was marked stale_anchor. All four edits were applied and pushed as version 10eb3afd1c163afd (pushes=1). No other text, styling, or structure was changed. One minor observation: the quoted anchor for Q2QNHAXAGNKRKOIOQCSJHPCYAC in the comment text ends with 'SRE lead 1.' while the span I edited read '…Reviewers: on-call primary, payments lead, SRE lead'; I treated these as the same reviewer-list line and edited that line, but I did not independently verify the trailing '1'."
+}</pre>
+<p class="meta">All verdicts and metrics are computed from the v1/v2 text diff by agent-review-loop, not from the model's claims. Token totals come from API usage fields.</p>
+</body></html>

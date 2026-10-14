@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en" data-slashdocs-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Release Readiness Review — checkout-service v2.4</title>
+<style>
+  :root {
+    --bg: #ffffff; --ink: #14181f; --muted: #5b6472; --line: #dfe3ea;
+    --panel: #f6f8fb; --accent: #2f6fed; --warn: #b45309; --bad: #b42318; --good: #067647;
+    color-scheme: light;
+  }
+  :root[data-slashdocs-theme="dark"] {
+    --bg: #0d1017; --ink: #e8edf5; --muted: #9aa5b4; --line: #262c38;
+    --panel: #141922; --accent: #6f9dff; --warn: #f0b357; --bad: #ff8a80; --good: #5fd39a;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 28px 22px 56px; background: var(--bg); color: var(--ink);
+    font: 15px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 34px 0 8px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+  p, li { max-width: 72ch; }
+  .meta { color: var(--muted); font-size: .86rem; margin: 0 0 18px; }
+  code { background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+    padding: 1px 5px; font-size: .88em; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: .92rem; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .78rem;
+    border: 1px solid var(--line); background: var(--panel); }
+  .pill.bad { color: var(--bad); border-color: var(--bad); }
+  .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .pill.good { color: var(--good); border-color: var(--good); }
+  figure { margin: 16px 0; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+  figcaption { color: var(--muted); font-size: .84rem; margin-top: 8px; }
+  svg { width: 100%; height: auto; display: block; }
+  .bar { fill: var(--accent); }
+  .axis { stroke: var(--line); stroke-width: 1; }
+  .lbl { fill: var(--muted); font-size: 9px; font-family: inherit; }
+  .signoff td:first-child { width: 34%; }
+  .status { color: var(--muted); font-size: .88rem; }
+  @media print { body { padding: 0; } h2 { break-after: avoid; } figure, table { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<main>
+
+  <h1>Release Readiness Review — checkout-service v2.4</h1>
+  <p class="meta">Release manager briefing for the on-call team · Target cut: Thu 14:00 UTC · Owner: R. Mehta (release manager, accountable for the cut decision) · Reviewers: on-call primary, payments lead, and SRE lead (3 reviewers; with the release manager as the 4th approver, all 4 sign-offs are required before the cut)</p>
+
+  <h2>1. Summary</h2>
+  <p>checkout-service v2.4 is a low-risk release: it changes the card-vault retry policy from a single attempt to up to three attempts with exponential backoff and full jitter, and it adds a client-generated idempotency key to the capture path. No public API contract changes, no schema changes that require a down-migration, and no new infrastructure; if this verification is skipped and any of those conditions turns out to be false, rollback to v2.3.7 could fail or strand the API and database on an incompatible version. I am recommending we proceed with the Thursday cut, with one caveat — the eu-west card vault incident (INC-4471) is still open and shares a failure domain with the retry change.</p>
+  <p>If the on-call primary disagrees with that assessment, the correct action is to block the cut, not to request a delay of the release window. A blocked cut costs us one sprint slot; a bad cut during an open incident costs us the incident.</p>
+
+  <h2>2. Scope of change</h2>
+  <p>The release contains 14 merged pull requests. The two that matter are the vault retry policy (exponential backoff, 3 attempts, 250 ms base, full jitter) and the capture idempotency key, which is now generated client-side and persisted in Redis with a 24-hour TTL. The remaining twelve are dependency bumps, log-field renames, and test-only changes.</p>
+  <p>The retry change increases worst-case checkout latency by roughly 1.75 s when the vault is degraded, because three attempts at 250/500/1000 ms plus jitter stack on top of the existing 2 s client timeout. I believe this is acceptable because it only fires on vault errors, but it is the single claim in this document most worth challenging.</p>
+  <table>
+    <thead><tr><th>Change</th><th>Blast radius</th><th>Feature flag</th></tr></thead>
+    <tbody>
+      <tr><td>Vault retry policy</td><td>All card payments, all regions</td><td><code>checkout.vault_retry_v2</code></td></tr>
+      <tr><td>Capture idempotency key</td><td>Capture path only</td><td><code>checkout.capture_idem</code></td></tr>
+      <tr><td>12 dependency / logging PRs</td><td>None observed</td><td>n/a</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. Error budget status</h2>
+  <p>Our availability SLO for the checkout API is 99.95% over a rolling 30-day window, which gives us 21.6 minutes of allowed unavailability. As of this morning we have consumed 8.1 minutes, leaving 62.5% of the budget. That is a comfortable position, but it is not the number I would use to justify a risky release.</p>
+  <p>Two of the last seven days account for 5.4 of the 8.1 consumed minutes, and both were vault-related. The budget is healthy; the burn pattern is not.</p>
+  <figure>
+    <svg viewBox="0 0 300 96" role="img" aria-label="Bar chart of daily error minutes for the last seven days, totalling 8.1 minutes against a 21.6 minute monthly budget">
+      <line class="axis" x1="8" y1="75" x2="292" y2="75"></line>
+      <rect class="bar" x="16"  y="69"   width="28" height="6"    rx="2"></rect>
+      <rect class="bar" x="56"  y="72"   width="28" height="3"    rx="2"></rect>
+      <rect class="bar" x="96"  y="58.5" width="28" height="16.5" rx="2"></rect>
+      <rect class="bar" x="136" y="70.5" width="28" height="4.5"  rx="2"></rect>
+      <rect class="bar" x="176" y="18"   width="28" height="57"   rx="2"></rect>
+      <rect class="bar" x="216" y="51"   width="28" height="24"   rx="2"></rect>
+      <rect class="bar" x="256" y="64.5" width="28" height="10.5" rx="2"></rect>
+      <text class="lbl" x="16"  y="86">Fri</text>
+      <text class="lbl" x="56"  y="86">Sat</text>
+      <text class="lbl" x="96"  y="86">Sun</text>
+      <text class="lbl" x="136" y="86">Mon</text>
+      <text class="lbl" x="176" y="86">Tue</text>
+      <text class="lbl" x="216" y="86">Wed</text>
+      <text class="lbl" x="256" y="86">Thu</text>
+      <text class="lbl" x="176" y="12">3.8 min</text>
+    </svg>
+    <figcaption>Daily error minutes, last 7 days. Total 8.1 min consumed of a 21.6 min monthly budget. Tuesday's 3.8 min spike was INC-4471's first occurrence.</figcaption>
+  </figure>
+
+  <h2>4. Rollback plan</h2>
+  <p>Rollback is a single command, <code>deploy rollback checkout-service --to v2.3.7</code>, and takes about 4 minutes end to end based on the last two rehearsals. Both new behaviours sit behind feature flags, so the faster path for a partial problem is to disable <code>checkout.vault_retry_v2</code> and <code>checkout.capture_idem</code> in LaunchDarkly, which propagates in under 30 seconds without a deploy.</p>
+  <p>There is no down-migration to run. The idempotency key is stored in Redis, not Postgres, and the Redis entries expire on their own within 24 hours; a rollback leaves orphaned keys that v2.3.7 simply ignores. I want the on-call primary to confirm they are comfortable with that claim before we cut.</p>
+
+  <h2>5. Open incidents</h2>
+  <p><strong>INC-4471</strong> <span class="pill bad">open · sev2</span> — elevated 5xx from the card vault in eu-west, ongoing for 6 days, root cause not yet identified. It is intermittent and currently affects roughly 0.4% of card authorisations in that region. This is the main reason a reviewer might reasonably block the release.</p>
+  <p><strong>INC-4488</strong> <span class="pill warn">open · sev3</span> — duplicate webhook deliveries to three merchant endpoints, observed since Monday. The cause is a known consumer-side dedupe gap, not a checkout-service defect, and it is unrelated to v2.4. I do not consider it a release blocker, but I am flagging it because it will add noise to the on-call rotation during the release window.</p>
+
+  <h2>6. Monitoring gaps</h2>
+  <p>We have three known gaps that matter for this specific release. First, there is no alert on vault timeout rate — we only alert on the resulting 5xx, which means a retry storm could burn budget for several minutes before anyone is paged. Second, there is no dashboard for idempotency-key collision rate, so if the new capture key is generated incorrectly we would see duplicate captures in merchant reports rather than in our own telemetry.</p>
+  <p>Third, distributed traces are sampled at 1%, which is too sparse to reconstruct a retry sequence during a low-volume incident. I am proposing we temporarily raise sampling to 10% for the 48 hours after the cut. That is a change to production config, so it needs the SRE lead's explicit approval rather than mine.</p>
+
+  <h2>7. Sign-off</h2>
+  <p>Each approver should tick their row only after reading sections 2, 4, and 6. Ticks are stored against this document and update immediately — there is no separate save step. A release with fewer than four ticks will not be cut.</p>
+  <table class="signoff">
+    <thead><tr><th>Approver</th><th>Question they are answering</th><th>Signed</th></tr></thead>
+    <tbody>
+      <tr><td>Release manager (R. Mehta)</td><td>Is the change set complete and correctly described?</td><td><input type="checkbox" id="so-release-manager" aria-label="Release manager sign-off"></td></tr>
+      <tr><td>On-call primary</td><td>Can we absorb this release alongside INC-4471?</td><td><input type="checkbox" id="so-oncall-primary" aria-label="On-call primary sign-off"></td></tr>
+      <tr><td>Payments lead</td><td>Is the retry and idempotency behaviour correct?</td><td><input type="checkbox" id="so-payments-lead" aria-label="Payments lead sign-off"></td></tr>
+      <tr><td>SRE lead</td><td>Are the monitoring gaps acceptable, and is the sampling change approved?</td><td><input type="checkbox" id="so-sre-lead" aria-label="SRE lead sign-off"></td></tr>
+    </tbody>
+  </table>
+  <p class="status" id="signoff-status" aria-live="polite">Loading sign-off state…</p>
+
+</main>
+
+<script>
+(function () {
+  var roles = ["release-manager", "oncall-primary", "payments-lead", "sre-lead"];
+  var status = document.getElementById("signoff-status");
+
+  function keyFor(role) { return "signoff:" + role; }
+
+  function render(state) {
+    var count = 0;
+    roles.forEach(function (role) {
+      var box = document.getElementById("so-" + role);
+      var entry = state[keyFor(role)];
+      var on = !!(entry && entry.approved);
+      if (box) box.checked = on;
+      if (on) count++;
+    });
+    status.textContent = count + " of " + roles.length + " approvers have signed off." +
+      (count === roles.length ? " Release is cleared to cut." : " Release is not yet cleared to cut.");
+  }
+
+  function readAll() {
+    if (!window.slashdocs || !window.slashdocs.kv) {
+      status.textContent = "Sign-off state unavailable in this context.";
+      return;
+    }
+    window.slashdocs.kv.all().then(function (items) {
+      var state = {};
+      roles.forEach(function (role) {
+        var v = items[keyFor(role)];
+        if (v) state[keyFor(role)] = v;
+      });
+      render(state);
+    }).catch(function () {
+      status.textContent = "Could not load sign-off state.";
+    });
+  }
+
+  roles.forEach(function (role) {
+    var box = document.getElementById("so-" + role);
+    if (!box) return;
+    box.addEventListener("change", function () {
+      if (!window.slashdocs || !window.slashdocs.kv) return;
+      var value = box.checked ? { approved: true, at: new Date().toISOString() } : null;
+      window.slashdocs.kv.set(keyFor(role), value).catch(function () {
+        status.textContent = "Could not save that sign-off. Try again.";
+      });
+    });
+  });
+
+  if (window.slashdocs && window.slashdocs.on) {
+    window.slashdocs.on("kvchange", function () { readAll(); });
+  }
+  readAll();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+{
+  "metrics": {
+    "attribution_rate": {
+      "key": "attribution_rate",
+      "label": "Attribution rate",
+      "value": "75.0%",
+      "detail": "3 edited / 4 actionable (stale anchors excluded)",
+      "na_reason": null
+    },
+    "collateral_churn": {
+      "key": "collateral_churn",
+      "label": "Collateral churn",
+      "value": "0.2%",
+      "detail": "1 of 652 changed chars outside anchors",
+      "na_reason": null
+    },
+    "claim_accuracy": {
+      "key": "claim_accuracy",
+      "label": "Claim accuracy",
+      "value": "75.0%",
+      "detail": "3/4 claims match computed verdicts",
+      "na_reason": null
+    },
+    "cost_per_attributed_fix": {
+      "key": "cost_per_attributed_fix",
+      "label": "Cost per attributed fix",
+      "value": "18552 tokens",
+      "detail": "55655 tokens total (37114 prompt + 18541 completion) / 3 edited",
+      "na_reason": null
+    },
+    "rounds_to_converge": {
+      "key": "rounds_to_converge",
+      "label": "Rounds to converge",
+      "value": "1",
+      "detail": "1 push(es) until no unresolved actionable comments remained",
+      "na_reason": null
+    },
+    "edited": 3,
+    "untouched": 1,
+    "deleted": 0,
+    "stale_anchor": 0,
+    "actionable": 4,
+    "total_tokens": 55655,
+    "prompt_tokens": 37114,
+    "completion_tokens": 18541,
+    "pushes": 1,
+    "converged": true
+  },
+  "mismatches": [
+    {
+      "comment_id": "W5Z2RTFJFCGMEHZTBYBY3DBU4W",
+      "claim": "addressed",
+      "computed": "untouched",
+      "message": "VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED"
+    }
+  ],
+  "conflict": false,
+  "conflict_note": null
+}

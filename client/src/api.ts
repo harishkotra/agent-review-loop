@@ -18,6 +18,9 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 }
 
 export const api = {
+  preflight: (slashdocs: any, model: any) => req<{ checks: any[] }>('POST', '/api/preflight', { slashdocs, model }),
+  listExamples: () => req<{ items: any[] }>('GET', '/api/examples'),
+  getExample: (name: string) => req<any>('GET', `/api/examples/${name}`),
   testConnection: (model: any) => req<{ ok: boolean; detail: string }>('POST', '/api/test-connection', model),
   createRun: (body: any) => req<any>('POST', '/api/runs', body),
   getRun: (id: string) => req<any>('GET', `/api/runs/${id}`),

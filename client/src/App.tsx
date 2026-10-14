@@ -121,10 +121,39 @@ export default function App() {
   }
 
   const [runs, setRuns] = useState<any[]>([])
+  const [examples, setExamples] = useState<any[]>([])
+  const [env, setEnv] = useState<any[] | null>(null)
+  const [envBusy, setEnvBusy] = useState(false)
+
+  const runEnv = useCallback(async () => {
+    setEnvBusy(true)
+    try {
+      const r = await api.preflight(settings.slashdocs, settings.model)
+      setEnv(r.checks)
+    } catch (e: any) {
+      setEnv([{ name: 'preflight', ok: false, detail: String(e?.message ?? e) }])
+    } finally {
+      setEnvBusy(false)
+    }
+  }, [settings])
+  useEffect(() => { runEnv() }, []) // once on load
+
   const refreshRuns = useCallback(() => {
     api.listRuns().then(r => setRuns(r.items ?? [])).catch(() => {})
   }, [])
   useEffect(() => { refreshRuns() }, [refreshRuns, busy])
+  useEffect(() => { api.listExamples().then(r => setExamples(r.items ?? [])).catch(() => {}) }, [])
+
+  async function openExample(name: string) {
+    setRunId(null)
+    setError(null)
+    try {
+      setData(await api.getExample(name))
+      setTab('verdicts')
+    } catch (e: any) {
+      setError(String(e?.message ?? e))
+    }
+  }
 
   async function openRun(id: string) {
     setRunId(id)
@@ -215,6 +244,48 @@ export default function App() {
               </table>
               <p className="muted">Everything above lives in your browser's localStorage. Click settings to change or test the connection.</p>
             </div>
+            <div className="panel">
+              <h2>Environment</h2>
+              {env === null && <p className="muted">{envBusy ? 'checking…' : 'not checked'}</p>}
+              {env && (
+                <table>
+                  <tbody>
+                    {env.map((c: any) => (
+                      <tr key={c.name}>
+                        <td style={{ width: 24 }}>{c.ok === null ? '–' : c.ok ? '✓' : '✗'}</td>
+                        <td style={{ width: 140 }}>{c.name}</td>
+                        <td>
+                          <span className={c.ok === false ? 'warn' : 'muted'} style={{ whiteSpace: 'pre-wrap' }}>{c.detail}</span>
+                          {c.ok === false && c.fix && <div className="muted" style={{ marginTop: 2 }}>↳ {c.fix}</div>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+              <div style={{ marginTop: 8 }}>
+                <button className="btn" disabled={envBusy} onClick={runEnv}>{envBusy ? 'checking…' : 're-check environment'}</button>
+              </div>
+            </div>
+            {examples.length > 0 && (
+              <div className="panel">
+                <h2>Examples — real recorded runs, no API key needed</h2>
+                <table>
+                  <tbody>
+                    {examples.map(x => (
+                      <tr key={x.id}>
+                        <td>{x.doc_id ?? x.id}</td>
+                        <td>{x.model?.model}</td>
+                        <td><button className="btn" onClick={() => openExample(x.id)}>load</button></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="muted" style={{ marginTop: 6 }}>
+                  Full evidence bundle from a live run: verdicts, metrics, trace, agent claims. Browse it before spending any tokens.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -226,11 +297,16 @@ export default function App() {
                   <span key={p} className={i < phaseIdx ? 'done' : i === phaseIdx ? 'now' : ''}>{p}</span>
                 ))}
               </div>
+              {rec.example && (
+                <div className="muted" style={{ marginBottom: 10 }}>
+                  read-only example (run {rec.id}) — the Verdicts and Scorecard tabs show its real measured results. Create your own run in Setup.
+                </div>
+              )}
               <div className="grid">
                 <div className="panel">
                   <h2>Actions</h2>
                   <div className="row" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                    <button className="btn primary" disabled={!!busy || rec.phase !== 'setup'} onClick={author}>
+                    <button className="btn primary" disabled={!!busy || rec.phase !== 'setup' || rec.example} onClick={author}>
                       1. Author v1 from brief &amp; publish
                     </button>
                     {rec.doc_url && (
@@ -238,13 +314,13 @@ export default function App() {
                     )}
                     <button
                       className={'btn' + (badgeCount > 0 ? ' primary' : '')}
-                      disabled={!!busy || !rec.doc_id}
+                      disabled={!!busy || !rec.doc_id || rec.example}
                       onClick={recheck}
                     >
                       2. Re-check comments ({liveCount ?? actionable.length} unresolved actionable)
                       {badgeCount > 0 && <span className="badge-new"> {badgeCount} new</span>}
                     </button>
-                    <button className="btn" disabled={!!busy || actionable.length === 0} onClick={revise}>
+                    <button className="btn" disabled={!!busy || actionable.length === 0 || rec.example} onClick={revise}>
                       3. Run revision agent + score
                     </button>
                   </div>
@@ -347,7 +423,7 @@ export default function App() {
             {!metrics ? <div className="empty">no metrics yet — run the revision agent first.</div> : (
               <>
                 <p className="muted">Pushes the scorecard as its own self-contained document.</p>
-                <button className="btn primary" disabled={!!busy} onClick={publishScorecard}>publish scorecard</button>
+                <button className="btn primary" disabled={!!busy || rec?.example} onClick={publishScorecard}>publish scorecard</button>
                 {data?.scorecard_url && (
                   <p style={{ marginTop: 10 }}>published: <a href={data.scorecard_url} target="_blank" rel="noreferrer">{data.scorecard_url}</a></p>
                 )}

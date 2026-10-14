@@ -112,6 +112,7 @@ export interface RunRecord {
   doc_url: string | null
   v1_version_id: string | null
   error: string | null
+  example?: boolean
   log: { at: string; step: string; detail: string }[]
 }
 

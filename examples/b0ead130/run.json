@@ -1,0 +1,100 @@
+{
+  "id": "b0ead130",
+  "created_at": "2026-10-14T15:35:01.224Z",
+  "phase": "scored",
+  "slashdocs": {
+    "mode": "local",
+    "cliPath": "slashdocs",
+    "documentsFolder": "/tmp/arl-smoke-docs"
+  },
+  "model": {
+    "baseUrl": "https://api.particle.ai/v1",
+    "apiKey": "",
+    "model": "deepseek-v4.1-flash"
+  },
+  "target": {
+    "kind": "brief",
+    "brief": "Release readiness review for checkout-service v2.4. Sections: summary, scope of change, error budget status, rollback plan, open incidents, monitoring gaps, sign-off. Write it as a release manager briefing the on-call team. Make concrete claims a reviewer could question."
+  },
+  "doc_id": "b0ead130.html",
+  "doc_url": "http://slashdocs.localhost/app/d/b0ead130.html",
+  "v1_version_id": "850ca5436d456e19",
+  "error": null,
+  "log": [
+    {
+      "at": "2026-10-14T15:35:01.225Z",
+      "step": "created",
+      "detail": "mode=local target=brief"
+    },
+    {
+      "at": "2026-10-14T15:35:01.234Z",
+      "step": "author",
+      "detail": "model=deepseek-v4.1-flash writing v1"
+    },
+    {
+      "at": "2026-10-14T15:35:13.502Z",
+      "step": "publish",
+      "detail": "doc=b0ead130.html url=http://slashdocs.localhost/app/d/b0ead130.html"
+    },
+    {
+      "at": "2026-10-14T15:35:13.607Z",
+      "step": "comments",
+      "detail": "4 unresolved actionable of 4"
+    },
+    {
+      "at": "2026-10-14T15:35:13.624Z",
+      "step": "revise round 1",
+      "detail": "4 actionable comments"
+    },
+    {
+      "at": "2026-10-14T15:35:14.609Z",
+      "step": "agent",
+      "detail": "tool pull_document -> /Users/shk/experiments/agent-review-loop/runs/b0ead130/agent_current.html (12127 bytes)"
+    },
+    {
+      "at": "2026-10-14T15:35:17.872Z",
+      "step": "agent",
+      "detail": "tool list_comments -> 4 open actionable"
+    },
+    {
+      "at": "2026-10-14T15:35:45.262Z",
+      "step": "agent",
+      "detail": "tool push_version -> v1 pushed, v2 snapshot saved"
+    },
+    {
+      "at": "2026-10-14T15:35:46.435Z",
+      "step": "agent",
+      "detail": "tool resolve_comment W5Z2RTFJFCGMEHZTBYBY3DBU4W"
+    },
+    {
+      "at": "2026-10-14T15:35:46.436Z",
+      "step": "agent",
+      "detail": "tool resolve_comment Q2QNHAXAGNKRKOIOQCSJHPCYAC"
+    },
+    {
+      "at": "2026-10-14T15:35:46.436Z",
+      "step": "agent",
+      "detail": "tool resolve_comment E73BWMNB2TW7HZUCAJFYR2ZULB"
+    },
+    {
+      "at": "2026-10-14T15:35:46.438Z",
+      "step": "agent",
+      "detail": "tool resolve_comment LF4HDU6L6RN5S3QNRNNNLERVFU"
+    },
+    {
+      "at": "2026-10-14T15:35:48.052Z",
+      "step": "agent",
+      "detail": "agent finished: pushes=1 replies=5 last=\"Push succeeded (new version `10eb3afd1c163afd`). Structured report: | Comment id | Anchor span | Status | Change made | |---|---|---|---| | W5Z2RTFJFCGMEHZTBYBY\""
+    },
+    {
+      "at": "2026-10-14T15:35:50.383Z",
+      "step": "scored",
+      "detail": "edited=3 untouched=1 deleted=0 stale=0"
+    },
+    {
+      "at": "2026-10-14T15:35:50.395Z",
+      "step": "scorecard",
+      "detail": "published b0ead130-scorecard.html -> http://slashdocs.localhost/app/d/b0ead130-scorecard.html"
+    }
+  ]
+}

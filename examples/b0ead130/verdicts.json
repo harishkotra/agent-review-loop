@@ -1,0 +1,82 @@
+[
+  {
+    "comment_id": "W5Z2RTFJFCGMEHZTBYBY3DBU4W",
+    "quote": "Release Readiness Review — checkout-service v2.4 Release manager briefing for the on-call team · Target cut: Thu 14:00 UTC · Owner: R.",
+    "human_comment": "Name the owner of this action explicitly.",
+    "agent_claim": "addressed",
+    "verdict": "untouched",
+    "reanchor_mode": "exact",
+    "similarity": 1,
+    "v1_span": [
+      5,
+      141
+    ],
+    "v2_span": [
+      5,
+      141
+    ],
+    "before_snippet": " Release Readiness Review — checkout-service v2.4 Release manager briefing for the on-call team · Target cut: Thu 14:00 UTC · Owner: R. Mehta · Reviewers: on-call primary, pay…",
+    "after_snippet": " Release Readiness Review — checkout-service v2.4 Release manager briefing for the on-call team · Target cut: Thu 14:00 UTC · Owner: R. Mehta (release manager, accountable for…",
+    "note": null
+  },
+  {
+    "comment_id": "Q2QNHAXAGNKRKOIOQCSJHPCYAC",
+    "quote": "Mehta · Reviewers: on-call primary, payments lead, SRE lead 1.",
+    "human_comment": "Give the concrete number or threshold here instead of a vague qualifier.",
+    "agent_claim": "addressed",
+    "verdict": "edited",
+    "reanchor_mode": "fuzzy",
+    "similarity": 0.6206896551724138,
+    "v1_span": [
+      142,
+      207
+    ],
+    "v2_span": [
+      142,
+      271
+    ],
+    "before_snippet": "…· Target cut: Thu 14:00 UTC · Owner: R. Mehta · Reviewers: on-call primary, payments lead, SRE lead 1. Summary checkout-service v2.4 is a lo…",
+    "after_snippet": "…· Target cut: Thu 14:00 UTC · Owner: R. Mehta (release manager, accountable for the cut decision) · Reviewers: on-call primary, payments lead, and SRE lead (3 reviewers; with the release manager as the 4th app…",
+    "note": "fuzzy re-anchor, similarity 0.62"
+  },
+  {
+    "comment_id": "E73BWMNB2TW7HZUCAJFYR2ZULB",
+    "quote": "Summary checkout-service v2.4 is a low-risk release: it changes how we retry calls to the card vault and adds an idempotency key to the capture path.",
+    "human_comment": "This is ambiguous — rewrite so it can only be read one way.",
+    "agent_claim": "addressed",
+    "verdict": "edited",
+    "reanchor_mode": "fuzzy",
+    "similarity": 0.684931506849315,
+    "v1_span": [
+      208,
+      359
+    ],
+    "v2_span": [
+      369,
+      618
+    ],
+    "before_snippet": "… primary, payments lead, SRE lead 1. Summary checkout-service v2.4 is a low-risk release: it changes how we retry calls to the card vault and adds an idempotency key to the capture path. No public API contract changes, no sche…",
+    "after_snippet": "…offs are required before the cut) 1. Summary checkout-service v2.4 is a low-risk release: it changes the card-vault retry policy from a single attempt to up to three attempts with exponential backoff and full jitter, and it adds a client-generated idempotency key to the capture path. No public API contract changes, no sche…",
+    "note": "fuzzy re-anchor, similarity 0.68"
+  },
+  {
+    "comment_id": "LF4HDU6L6RN5S3QNRNNNLERVFU",
+    "quote": "No public API contract changes, no schema changes that require a down-migration, and no new infrastructure.",
+    "human_comment": "State the risk if this step is skipped.",
+    "agent_claim": "addressed",
+    "verdict": "edited",
+    "reanchor_mode": "fuzzy",
+    "similarity": 1,
+    "v1_span": [
+      360,
+      467
+    ],
+    "v2_span": [
+      619,
+      726
+    ],
+    "before_snippet": "…an idempotency key to the capture path. No public API contract changes, no schema changes that require a down-migration, and no new infrastructure. I am recommending we proceed with the T…",
+    "after_snippet": "…ed idempotency key to the capture path. No public API contract changes, no schema changes that require a down-migration, and no new infrastructure; if this verification is skipped and any…",
+    "note": "fuzzy re-anchor, similarity 1.00"
+  }
+]

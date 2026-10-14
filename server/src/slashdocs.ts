@@ -65,17 +65,35 @@ export async function runCli(
 
 /** Make sure the local server is running and serving the configured folder. */
 export async function ensureLocal(cfg: SlashdocsConfig): Promise<string> {
+  const { resolve: r, normalize } = await import('node:path')
   const args = ['local', 'start']
   if (cfg.documentsFolder) args.push('--dir', cfg.documentsFolder)
+  let out = ''
   try {
-    const { stdout } = await runCli({ ...cfg, mode: 'local' }, args)
-    return stdout
+    const res = await runCli({ ...cfg, mode: 'local' }, args)
+    out = res.stdout
   } catch (err) {
-    // already running with same dir is fine; anything else surfaces
     const msg = err instanceof CliError ? err.stderr || err.message : String(err)
-    if (/already running|is running/.test(msg)) return msg
-    throw err
+    if (!/already running|is running/.test(msg)) throw err
+    out = msg
   }
+  // `local start` is a no-op when a server is already running, possibly on a
+  // different folder — detect that and fail loudly instead of misrouting docs
+  if (cfg.documentsFolder) {
+    const serving = out.match(/serving ([^,\)]+)/)?.[1]?.trim()
+    if (serving) {
+      const want = r(process.cwd(), normalize(cfg.documentsFolder))
+      const got = r(process.cwd(), serving)
+      if (want !== got) {
+        throw new CliError(
+          `slashdocs local is already serving a different folder: "${got}" (wanted "${want}"). ` +
+          'Run `slashdocs local stop` and retry, or set the same documents folder in Settings.',
+          1, out,
+        )
+      }
+    }
+  }
+  return out
 }
 
 export async function docsList(cfg: SlashdocsConfig): Promise<any> {

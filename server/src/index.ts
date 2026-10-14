@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import dotenv from 'dotenv'
@@ -23,6 +23,7 @@ import * as sd from './slashdocs.js'
 import { chat, testConnection } from './llm.js'
 import { authorV1 } from './authoring.js'
 import { computeVerdicts, computeMetrics, findMismatches, isActionable } from './scoring.js'
+import { runPreflight } from './preflight.js'
 import { reviseAgent } from './agent.js'
 import { buildScorecardHtml } from './scorecard.js'
 import {
@@ -39,8 +40,64 @@ import {
 
 const app = new Hono()
 const MAX_ROUNDS = 3
+const EXAMPLES_DIR = join(here, '..', '..', 'examples')
+
+/** API keys live in process memory for the session, never in run.json on disk. */
+const keyStore = new Map<string, string>()
+function modelWithKey(rec: RunRecord): ModelConfig {
+  return { ...rec.model, apiKey: keyStore.get(rec.id) ?? rec.model.apiKey ?? '' }
+}
+
+function readExample(name: string) {
+  const dir = join(EXAMPLES_DIR, name)
+  const read = (f: string) => {
+    const p = join(dir, f)
+    return existsSync(p) ? readFileSync(p, 'utf8') : null
+  }
+  const json = <T,>(f: string): T | null => {
+    const raw = read(f)
+    return raw ? (JSON.parse(raw) as T) : null
+  }
+  const record = json<RunRecord>('run.json')
+  if (!record) return null
+  record.example = true
+  return {
+    record,
+    comments_before: json<any[]>('comments.before.json'),
+    comments_after: json<any[]>('comments.after.json'),
+    verdicts: json<any[]>('verdicts.json'),
+    metrics: json<any>('metrics.json'),
+    claims: json<any>('agent-claims.json'),
+    files: ['brief.md', 'v1.html', 'v2.html', 'trace.json', 'scorecard.html'].filter(f => existsSync(join(dir, f))),
+  }
+}
+
+app.get('/api/examples', c => {
+  const items = existsSync(EXAMPLES_DIR)
+    ? readdirSync(EXAMPLES_DIR)
+        .filter(d => existsSync(join(EXAMPLES_DIR, d, 'run.json')))
+        .map(d => ({ id: d, ...(readExample(d)?.record ?? {}) }))
+    : []
+  return c.json({ items })
+})
+
+app.get('/api/examples/:name', c => {
+  const name = c.req.param('name')
+  if (!/^[\w.-]+$/.test(name)) return c.json({ error: 'bad example name' }, 400)
+  const data = readExample(name)
+  return data ? c.json(data) : c.json({ error: 'example not found' }, 404)
+})
 
 app.get('/api/health', c => c.json({ ok: true }))
+
+app.post('/api/preflight', async c => {
+  const body = await c.req.json().catch(() => ({}))
+  const checks = await runPreflight(
+    (body.slashdocs ?? { mode: 'local', cliPath: 'slashdocs' }) as SlashdocsConfig,
+    body.model as ModelConfig | undefined,
+  )
+  return c.json({ checks })
+})
 
 app.post('/api/test-connection', async c => {
   const body = await c.req.json()
@@ -88,6 +145,10 @@ app.post('/api/runs', async c => {
   }
   createRunDir(rec.id)
   if (rec.target.kind === 'brief') writeArtifact(rec.id, 'brief.md', rec.target.brief)
+  if (rec.model?.apiKey) {
+    keyStore.set(rec.id, rec.model.apiKey)
+    rec.model = { ...rec.model, apiKey: '' } // never persist keys in the evidence bundle
+  }
   saveRecord(rec)
   logStep(rec, 'created', `mode=${rec.slashdocs.mode} target=${rec.target.kind}`)
   if (rec.slashdocs.mode === 'local') {
@@ -108,7 +169,9 @@ app.post('/api/runs/:id/author', async c => {
   try {
     if (rec.target.kind === 'brief') {
       logStep(rec, 'author', `model=${rec.model.model} writing v1`)
-      const { html, usage } = await authorV1(rec.model, (rec.target as any).brief, rec.slashdocs.cliPath)
+      const model = modelWithKey(rec)
+      if (!model.apiKey) return c.json({ error: 'API key missing in this server session (keys are never stored on disk). Re-enter it in Settings and retry.' }, 400)
+      const { html, usage } = await authorV1(model, (rec.target as any).brief, rec.slashdocs.cliPath)
       writeArtifact(id, 'v1.html', html)
       writeArtifact(id, 'author-usage.json', JSON.stringify(usage))
       rec.phase = 'authored'
@@ -180,6 +243,9 @@ app.post('/api/runs/:id/revise', async c => {
   const rec = loadRecord(id)
   if (!rec.doc_id) return c.json({ error: 'no document published yet' }, 400)
   try {
+    if (!modelWithKey(rec).apiKey) {
+      return c.json({ error: 'API key missing in this server session (keys are never stored on disk). Re-enter it in Settings and retry.' }, 400)
+    }
     let promptTokens = 0
     let completionTokens = 0
     // authoring usage counts toward run cost
@@ -216,7 +282,7 @@ app.post('/api/runs/:id/revise', async c => {
       logStep(rec, `revise round ${round}`, `${pending.length} actionable comments`)
       const res = await reviseAgent({
         runId: id,
-        model: rec.model,
+        model: modelWithKey(rec),
         sd: rec.slashdocs,
         docId: rec.doc_id,
         baseVersionId,

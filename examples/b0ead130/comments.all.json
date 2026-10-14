@@ -1,0 +1,62 @@
+[
+  {
+    "anchor": {
+      "quote": "Release Readiness Review — checkout-service v2.4 Release manager briefing for the on-call team · Target cut: Thu 14:00 UTC · Owner: R."
+    },
+    "author": {
+      "id": "shk",
+      "name": "Harish Kotra",
+      "type": "user"
+    },
+    "body": "Name the owner of this action explicitly.",
+    "created_at": "2026-10-14T15:35:13.56218Z",
+    "created_on_version_id": "850ca5436d456e19",
+    "id": "W5Z2RTFJFCGMEHZTBYBY3DBU4W",
+    "status": "open"
+  },
+  {
+    "anchor": {
+      "quote": "Mehta · Reviewers: on-call primary, payments lead, SRE lead 1."
+    },
+    "author": {
+      "id": "shk",
+      "name": "Harish Kotra",
+      "type": "user"
+    },
+    "body": "Give the concrete number or threshold here instead of a vague qualifier.",
+    "created_at": "2026-10-14T15:35:13.569586Z",
+    "created_on_version_id": "850ca5436d456e19",
+    "id": "Q2QNHAXAGNKRKOIOQCSJHPCYAC",
+    "status": "open"
+  },
+  {
+    "anchor": {
+      "quote": "Summary checkout-service v2.4 is a low-risk release: it changes how we retry calls to the card vault and adds an idempotency key to the capture path."
+    },
+    "author": {
+      "id": "shk",
+      "name": "Harish Kotra",
+      "type": "user"
+    },
+    "body": "This is ambiguous — rewrite so it can only be read one way.",
+    "created_at": "2026-10-14T15:35:13.579246Z",
+    "created_on_version_id": "850ca5436d456e19",
+    "id": "E73BWMNB2TW7HZUCAJFYR2ZULB",
+    "status": "open"
+  },
+  {
+    "anchor": {
+      "quote": "No public API contract changes, no schema changes that require a down-migration, and no new infrastructure."
+    },
+    "author": {
+      "id": "shk",
+      "name": "Harish Kotra",
+      "type": "user"
+    },
+    "body": "State the risk if this step is skipped.",
+    "created_at": "2026-10-14T15:35:13.587399Z",
+    "created_on_version_id": "850ca5436d456e19",
+    "id": "LF4HDU6L6RN5S3QNRNNNLERVFU",
+    "status": "open"
+  }
+]
