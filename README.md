@@ -1,17 +1,19 @@
 # agent-review-loop
 
-A review-loop harness that measures whether an AI agent actually fixed what a
-human reviewer asked it to fix in a [slashdocs](https://github.com/razorpay/slashdocs) document.
+A review-loop harness that measures whether an AI agent actually fixed what a human reviewer asked it to fix in a [slashdocs](https://github.com/razorpay/slashdocs) document.
 
-slashdocs gives agents a place to publish reviewable self-contained HTML, and gives
-humans anchored comments on the exact words. What nobody had measured is the thing
-that matters: when the agent pushes the next version, **did it change the text each
-comment was anchored to, or did it rewrite the whole document and hope nobody
-noticed?**
+slashdocs gives agents a place to publish reviewable self-contained HTML, and gives humans anchored comments on the exact words. What nobody had measured is the thing that matters: when the agent pushes the next version, **did it change the text each comment was anchored to, or did it rewrite the whole document and hope nobody noticed?**
 
 agent-review-loop runs that loop end to end and scores it with real numbers computed
 from the run. It is a measurement instrument, not a doc generator. The human comments
 are the ground truth; the agent's own claims are not.
+
+<img width="2022" height="1047" alt="Screenshot at Oct 14 23-56-34" src="https://github.com/user-attachments/assets/445ea4c2-d35a-4ccd-a4ae-88cb89db155d" />
+<img width="2115" height="1130" alt="image" src="https://github.com/user-attachments/assets/eb130e0c-9214-44ce-8853-76b5d481fc63" />
+<img width="2119" height="1026" alt="image" src="https://github.com/user-attachments/assets/3d3e3be1-9877-456b-97ed-d4b7e4bbd120" />
+<img width="2115" height="1018" alt="image" src="https://github.com/user-attachments/assets/64aa7ae8-0949-49c2-897a-17f1fa117d6b" />
+<img width="2108" height="1028" alt="image" src="https://github.com/user-attachments/assets/79674166-c19e-4687-b871-791321794077" />
+
 
 ## What it measures
 
@@ -23,8 +25,7 @@ are the ground truth; the agent's own claims are not.
 | **Cost per attributed fix** | total usage tokens for the run (prompt + completion, read from the API response) ÷ edited count. Shown in tokens; no currency figure is invented. |
 | **Rounds to converge** | number of pushes until no unresolved actionable comments remain (cap: 3). |
 
-If a metric cannot be computed for a run, it prints `N/A` with the reason. It never
-prints a zero or a placeholder where a real measurement was impossible.
+If a metric cannot be computed for a run, it prints `N/A` with the reason. It never prints a zero or a placeholder where a real measurement was impossible.
 
 Verdicts per comment, computed from the text, never from the model:
 
@@ -33,37 +34,28 @@ Verdicts per comment, computed from the text, never from the model:
 - **deleted** — the quote cannot be found in v2 and no fuzzy match clears the threshold.
 - **stale_anchor** — the comment's `created_on_version_id` predates the version the agent was given, and its quote is absent from that version. Excluded from the denominator, never counted as addressed, surfaced verbatim: `ATTRIBUTION: STALE ANCHOR - quote not found in current version; comment left unresolved`
 
-When the model claims a fix the diff does not show, the UI prints verbatim:
-`VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED`
+When the model claims a fix the diff does not show, the UI prints verbatim: `VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED`
 
 ## The anchor contract
 
-A slashdocs comment carries an anchor in the W3C Web Annotation shape
-(`frontend/bridge/anchoring/types.ts`):
+A slashdocs comment carries an anchor in the W3C Web Annotation shape (`frontend/bridge/anchoring/types.ts`):
 
 ```
 { quote, prefix, suffix, dom_path, start_offset, end_offset }
 ```
 
-`quote/prefix/suffix` are a TextQuoteSelector. `start_offset`/`end_offset` are
-character offsets into the **document body's raw `textContent`**, and `dom_path` is
-always `"body"`. The comment object also carries `id`, `document_id`, `version_id`,
-`created_on_version_id`, `author`, `body`, `status`, `created_at`, `resolved_at`,
-`replies` — all confirmed against live `slashdocs docs comments list --json` output.
+`quote/prefix/suffix` are a TextQuoteSelector. `start_offset`/`end_offset` are character offsets into the **document body's raw `textContent`**, and `dom_path` is always `"body"`. The comment object also carries `id`, `document_id`, `version_id`, `created_on_version_id`, `author`, `body`, `status`, `created_at`, `resolved_at`, `replies` — all confirmed against live `slashdocs docs comments list --json` output.
 
 ### Extractor verification (real numbers)
 
-We authored a tiny document, published it, selected a known sentence **in the real
-browser viewer**, left a comment, and compared slashdocs' stored offsets against the
-offsets our jsdom extractor computes for the same sentence:
+We authored a tiny document, published it, selected a known sentence **in the real browser viewer**, left a comment, and compared slashdocs' stored offsets against the offsets our jsdom extractor computes for the same sentence:
 
 | | start_offset | end_offset |
 |---|---|---|
 | slashdocs viewer (stored anchor) | **10** | **73** |
 | agent-review-loop jsdom extraction | **10** | **73** |
 
-The stored prefix (`"\nTiny Doc\n"`) also matched our extraction exactly. The two
-numbers compared: **10/73 vs 10/73 — agreement**.
+The stored prefix (`"\nTiny Doc\n"`) also matched our extraction exactly. The two numbers compared: **10/73 vs 10/73 — agreement**.
 
 ## Which metrics are exact, which are fuzzy
 
@@ -95,18 +87,11 @@ npm run doctor      # checks node, CLI, local server + folder, model reachabilit
 npm run dev         # client http://localhost:5173, server :3001
 ```
 
-Open **http://localhost:5173**. The Setup panel shows your **Environment** status
-(✓/✗ per check, re-runnable) and a **real recorded example run** you can browse —
-verdicts, metrics, trace, evidence — with no API key and no tokens spent.
+Open **http://localhost:5173**. The Setup panel shows your **Environment** status (✓/✗ per check, re-runnable) and a **real recorded example run** you can browse — verdicts, metrics, trace, evidence — with no API key and no tokens spent.
 
 ![Setup with environment checks and example](docs/screenshots/setup.png)
 
-Then: **settings** → pick a preset (or type your base URL + key + model) → **Test
-connection** → back to Setup → click a **sample brief** (release readiness, incident
-postmortem, ADR, product spec, churn analysis, QA findings) → **create run** →
-**author v1** → open the viewer URL, select words, leave comments (the Run panel
-lights a "N new" badge within 5 s) → **run revision agent + score** → Verdicts and
-Scorecard.
+Then: **settings** → pick a preset (or type your base URL + key + model) → **Test connection** → back to Setup → click a **sample brief** (release readiness, incident postmortem, ADR, product spec, churn analysis, QA findings) → **create run** → **author v1** → open the viewer URL, select words, leave comments (the Run panel lights a "N new" badge within 5 s) → **run revision agent + score** → Verdicts and Scorecard.
 
 ![Verdicts: quote, claim vs computed verdict, before/after at anchor](docs/screenshots/verdicts.png)
 ![Scorecard: the five metrics from the real diff](docs/screenshots/scorecard.png)
@@ -117,23 +102,14 @@ Scorecard.
 npm run build && npm start    # serves client + API on :3001
 ```
 
-**Headless**: `cp .env.example .env`, put `PARTICLE_API_KEY=` in it, then
-`npm run smoke`. Model selection for the two-model test comes from `MODEL_A`/`MODEL_B` in `.env`.
+**Headless**: `cp .env.example .env`, put `PARTICLE_API_KEY=` in it, then `npm run smoke`. Model selection for the two-model test comes from `MODEL_A`/`MODEL_B` in `.env`.
 
 ### slashdocs access modes (selectable in the UI)
 
-- **local (default, zero infra):** `slashdocs --local …`. A local document's id is its
-  path in the documents folder (default `~/slashdocs`), e.g. `report.html`. Viewer:
-  `http://slashdocs.localhost` (port 80, or 7070 if 80 is taken). Local mode has
-  comments but no version history, labels, folders, grants, or search — the harness
-  snapshots every version into `runs/<runId>/`.
-- **server:** `SLASHDOCS_SERVER` + `SLASHDOCS_TOKEN` (a service-account key,
-  `slashdocs_sa_…`) for headless runs. Adds immutable versions; runs mirror them.
+- **local (default, zero infra):** `slashdocs --local …`. A local document's id is its path in the documents folder (default `~/slashdocs`), e.g. `report.html`. Viewer: `http://slashdocs.localhost` (port 80, or 7070 if 80 is taken). Local mode has comments but no version history, labels, folders, grants, or search — the harness snapshots every version into `runs/<runId>/`.
+- **server:** `SLASHDOCS_SERVER` + `SLASHDOCS_TOKEN` (a service-account key, `slashdocs_sa_…`) for headless runs. Adds immutable versions; runs mirror them.
 
-On server mode, `docs push` can fail with **exit code 5 = version conflict**. The
-harness re-pulls the document, tells the agent to re-apply its changes, and retries
-**once**. If it conflicts again it records `VERSION CONFLICT - another writer pushed
-first; run aborted without clobbering` and stops. Never a blind-retry loop.
+On server mode, `docs push` can fail with **exit code 5 = version conflict**. The harness re-pulls the document, tells the agent to re-apply its changes, and retries **once**. If it conflicts again it records `VERSION CONFLICT - another writer pushed first; run aborted without clobbering` and stops. Never a blind-retry loop.
 
 ### Flow
 
@@ -144,8 +120,7 @@ first; run aborted without clobbering` and stops. Never a blind-retry loop.
 5. **Verify and score** — verdicts and metrics computed from the actual v1/v2 text.
 6. **Report** — scorecard in the UI, plus a self-contained HTML scorecard published back to slashdocs as its own document.
 
-The agent must return a structured report after the tool loop, enforced with a
-separate `response_format: json_object` call (validated against a zod schema):
+The agent must return a structured report after the tool loop, enforced with a separate `response_format: json_object` call (validated against a zod schema):
 
 ```json
 {
@@ -178,12 +153,9 @@ npx tsx scripts/two-model-test.ts # identical doc+comments, two models
 
 ### Test case results (real numbers)
 
-All three cases were run end to end against a locally served slashdocs document
-with Particle `deepseek-v4.1-flash` (and `glm5.3flash` for case 3). Output below is
-pasted from the actual runs; every number traces to `runs/<runId>/`.
+All three cases were run end to end against a locally served slashdocs document with Particle `deepseek-v4.1-flash` (and `glm5.3flash` for case 3). Output below is pasted from the actual runs; every number traces to `runs/<runId>/`.
 
-**1. Clean run** (`npm run smoke`, run `b0ead130`) — v1 authored from brief, four
-anchored comments on different sentences, agent revised:
+**1. Clean run** (`npm run smoke`, run `b0ead130`) — v1 authored from brief, four anchored comments on different sentences, agent revised:
 
 ```
 Attribution rate         75.0%          3 edited / 4 actionable (stale anchors excluded)
@@ -197,11 +169,9 @@ claim mismatches:
   W5Z2RTFJFCGMEHZTBYBY3DBU4W: VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED
 ```
 
-Attribution ≥ 3/4 ✓ and churn < 35% ✓ — and the instrument caught the model claiming
-a fix on a span it left byte-identical.
+Attribution ≥ 3/4 ✓ and churn < 35% ✓ — and the instrument caught the model claiming a fix on a span it left byte-identical.
 
-A second, later `npm run smoke` (run `07e4a1d4`) shows the run-to-run variance the
-instrument exists to expose — same pipeline, different numbers:
+A second, later `npm run smoke` (run `07e4a1d4`) shows the run-to-run variance the instrument exists to expose — same pipeline, different numbers:
 
 ```
 [smoke] run 07e4a1d4 created
@@ -217,12 +187,9 @@ verdicts: GLMUXU=edited, EO3QWK=deleted, NZAD23=edited, 7PEDUC=edited
 [smoke] evidence bundle: runs/07e4a1d4/
 ```
 
-Here the agent deleted one anchored sentence outright (`deleted`, not counted as
-addressed) and reflowed 170 characters outside any anchor — churn 37.1%, above the
-35% clean-run bar. Reported as measured, not as hoped.
+Here the agent deleted one anchored sentence outright (`deleted`, not counted as addressed) and reflowed 170 characters outside any anchor — churn 37.1%, above the 35% clean-run bar. Reported as measured, not as hoped.
 
-**2. Stale anchor** (`scripts/stale-test.ts`, run `804627c0`) — comment on a v1
-sentence, human pushes a version deleting it, then the agent runs:
+**2. Stale anchor** (`scripts/stale-test.ts`, run `804627c0`) — comment on a v1 sentence, human pushes a version deleting it, then the agent runs:
 
 ```
 [stale] version at comment time: 0d52ddb20a1d9bdd
@@ -235,11 +202,9 @@ doomed comment status in slashdocs after run: open
 STALE TEST PASS
 ```
 
-Exact string printed ✓, comment excluded from the denominator ✓, still unresolved in
-slashdocs ✓, no silent re-anchor ✓.
+Exact string printed ✓, comment excluded from the denominator ✓, still unresolved in slashdocs ✓, no silent re-anchor ✓.
 
-**3. Two models** (`scripts/two-model-test.ts`) — byte-identical document
-(`runs/b0ead130/v1.html`) with the same four comments on each copy:
+**3. Two models** (`scripts/two-model-test.ts`) — byte-identical document (`runs/b0ead130/v1.html`) with the same four comments on each copy:
 
 ```
 deepseek-v4.1-flash  (run d18dab6c)
@@ -259,10 +224,7 @@ glm5.3flash  (run ff2e62d3)
 OK: different measurements — 18036 vs 29587 tokens, 0.0% vs 50.0%
 ```
 
-Two different attribution rates and two different token totals on identical input —
-the harness is measuring the models, not itself. Note glm5.3flash's 46.9% churn: it
-fixed two anchors while rewriting large unanchored stretches — exactly the failure
-mode attribution rate alone would miss.
+Two different attribution rates and two different token totals on identical input — the harness is measuring the models, not itself. Note glm5.3flash's 46.9% churn: it fixed two anchors while rewriting large unanchored stretches — exactly the failure mode attribution rate alone would miss.
 
 ## Architecture
 
@@ -352,10 +314,7 @@ ground truth), or synthesise any number that could come from a real run.
 
 ## Framework swap note
 
-The revision agent is swappable to [Mastra](https://mastra.ai) (`@mastra/core`): keep
-the same four tools (they are thin CLI wrappers) and the same run record on disk —
-only `server/src/agent.ts` changes. This repo ships the OpenAI Agents SDK
-implementation; Mastra is documented, not built.
+The revision agent is swappable to [Mastra](https://mastra.ai) (`@mastra/core`): keep the same four tools (they are thin CLI wrappers) and the same run record on disk — only `server/src/agent.ts` changes. This repo ships the OpenAI Agents SDK implementation; Mastra is documented, not built.
 
 ## Honest limitations
 
