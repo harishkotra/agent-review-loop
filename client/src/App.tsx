@@ -323,6 +323,15 @@ export default function App() {
                     <button className="btn" disabled={!!busy || actionable.length === 0 || rec.example} onClick={revise}>
                       3. Run revision agent + score
                     </button>
+                    {rec.doc_url && (
+                      <button
+                        className="btn"
+                        title="slashdocs blocks iframe embedding by design; this opens the viewer in a window sized to sit beside this app"
+                        onClick={() => window.open(rec.doc_url, 'arl-viewer', 'width=780,height=1000,left=1180,top=40')}
+                      >
+                        ⧉ open viewer beside this window
+                      </button>
+                    )}
                   </div>
                   <p className="muted" style={{ marginTop: 10 }}>
                     Open the viewer link, select the exact words you want changed, and leave anchored comments.
