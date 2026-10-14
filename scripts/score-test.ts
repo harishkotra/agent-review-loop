@@ -131,5 +131,20 @@ const v2b = V1.replace('manual database reverts', 'automated database reverts')
 const fz = reanchor(bodyText(v2b), { quote: q1, start_offset: loc!.start, end_offset: loc!.end })
 check('fuzzy finds edited sentence', !!fz && fz.mode === 'fuzzy', fz?.mode + ' ' + (fz?.similarity?.toFixed(2) ?? ''))
 
+// --- split case: one anchored sentence separated into two (regression) ---
+const V1s = `<!doctype html><html><body><p>The rollback plan relies on manual database reverts. Error budget is fine this quarter.</p></body></html>`
+const V2s = `<!doctype html><html><body><ul><li>Positive: the rollback plan relies on automated database reverts.</li><li>Negative: error budget is fine this quarter.</li></ul></body></html>`
+const qSplit = 'The rollback plan relies on manual database reverts. Error budget is fine this quarter.'
+const text1s = bodyText(V1s)
+const locS = locateInOriginal(text1s, { quote: qSplit })
+const splitVerdicts = computeVerdicts({
+  commentsBefore: [{ id: 'sp1', body: 'separate positives and negatives', status: 'open', anchor: { quote: qSplit, start_offset: locS?.start, end_offset: locS?.end } }],
+  v1Html: V1s,
+  v2Html: V2s,
+  agentBaseVersionId: 'vA',
+  agentReport: null,
+})
+check('split rewrite reads as edited, not deleted', splitVerdicts[0]?.verdict === 'edited', splitVerdicts[0]?.verdict + ' sim=' + (splitVerdicts[0]?.similarity?.toFixed(2) ?? ''))
+
 console.log(failures === 0 ? '\nALL SCORE TESTS PASS' : `\n${failures} FAILURES`)
 process.exit(failures === 0 ? 0 : 1)

@@ -172,16 +172,33 @@ function fuzzyBest(text: string, quote: string, lo: number, hi: number): Located
   // score every sentence fragment in the window; an in-place rewrite of the
   // anchored sentence should out-score unrelated neighbours
   const parts = region.split(/(?<=[.!?;])\s+/)
+  const spans: { start: number; end: number; text: string }[] = []
   let cursor = lo
   for (const part of parts) {
     const s = region.indexOf(part, Math.max(0, cursor - lo))
     const abs = s === -1 ? cursor : lo + s
     cursor = abs + part.length
-    const cand = normWs(part)
-    if (cand.length < quote.length * 0.3) continue
-    const score = Math.max(wordDice(cand, normWs(quote)), similarity(cand, normWs(quote)))
-    if (score >= FUZZY_THRESHOLD && (!best || score > (best.similarity ?? 0))) {
-      best = { start: abs, end: abs + part.length, mode: 'fuzzy', similarity: score }
+    spans.push({ start: abs, end: abs + part.length, text: part })
+  }
+  const score = (a: { start: number; end: number }, b: { start: number; end: number }) => {
+    const cand = normWs(text.slice(a.start, b.end))
+    if (cand.length < quote.length * 0.3) return -1
+    return Math.max(wordDice(cand, normWs(quote)), similarity(cand, normWs(quote)))
+  }
+  const consider = (start: number, end: number, sc: number) => {
+    if (sc >= FUZZY_THRESHOLD && (!best || sc > (best.similarity ?? 0))) {
+      best = { start, end, mode: 'fuzzy', similarity: sc }
+    }
+  }
+  for (let i = 0; i < spans.length; i++) {
+    consider(spans[i].start, spans[i].end, score(spans[i], spans[i]))
+    // merged consecutive fragments: the anchored text may have been SPLIT
+    // (e.g. one sentence separated into a list), which single-fragment
+    // scoring would wrongly report as deleted
+    for (let j = i + 1; j < spans.length; j++) {
+      const merged = { start: spans[i].start, end: spans[j].end }
+      if (text.slice(merged.start, merged.end).length > quote.length * 2.2 + 60) break
+      consider(merged.start, merged.end, score(spans[i], merged))
     }
   }
   return best

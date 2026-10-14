@@ -46,7 +46,8 @@ const EXAMPLES_DIR = join(here, '..', '..', 'examples')
 /** API keys live in process memory for the session, never in run.json on disk. */
 const keyStore = new Map<string, string>()
 function modelWithKey(rec: RunRecord): ModelConfig {
-  return { ...rec.model, apiKey: keyStore.get(rec.id) ?? rec.model.apiKey ?? '' }
+  const envKey = process.env.PARTICLE_API_KEY || process.env.OPENAI_API_KEY || ''
+  return { ...rec.model, apiKey: keyStore.get(rec.id) || rec.model.apiKey || envKey }
 }
 
 function readExample(name: string) {
@@ -303,7 +304,38 @@ app.post('/api/runs/:id/revise', async c => {
       // convergence: re-pull comments; open actionable remaining?
       const after = await sd.docsCommentsList(rec.slashdocs, rec.doc_id)
       writeArtifact(id, 'comments.after.json', JSON.stringify(after, null, 2))
-      const remaining = after.filter(isActionable)
+      // integrity: resolution without an anchored edit is not convergence.
+      // Diff the base snapshot against the current version; reopen any comment
+      // the agent resolved while its anchored text stayed untouched.
+      await sd.docsPull(rec.slashdocs, rec.doc_id, join(runDir(id), 'v2.html'))
+      const quick = computeVerdicts({
+        commentsBefore: pending,
+        v1Html: readArtifact(id, 'v1.html') ?? '',
+        v2Html: readArtifact(id, 'v2.html') ?? '',
+        agentBaseVersionId: baseVersionId,
+        agentReport: null,
+      })
+      const quickById = new Map(quick.map(v => [v.comment_id, v.verdict]))
+      const falselyResolved = after.filter(
+        cm => cm.status === 'resolved' && (quickById.get(cm.id) === 'untouched' || quickById.get(cm.id) === 'deleted'),
+      )
+      if (falselyResolved.length > 0) {
+        await sd.docsCommentsReopen(rec.slashdocs, rec.doc_id, falselyResolved.map(cm => cm.id))
+        for (const cm of falselyResolved) {
+          try {
+            await sd.docsCommentsReply(
+              rec.slashdocs, rec.doc_id, cm.id,
+              'agent-review-loop: reopened — the agent resolved this but the anchored text was unchanged in the pushed version. It stays actionable.',
+            )
+          } catch { /* reply is best-effort; reopen already happened */ }
+        }
+        logStep(rec, 'integrity', `reopened ${falselyResolved.length} comment(s) resolved without an anchored edit`)
+      }
+      const reopenedIds = new Set(falselyResolved.map(cm => cm.id))
+      // reopened comments must carry status open into the next round's verdict pass
+      const remaining = after
+        .map(cm => (reopenedIds.has(cm.id) ? { ...cm, status: 'open' } : cm))
+        .filter(cm => isActionable(cm))
       if (remaining.length === 0) {
         converged = true
         break

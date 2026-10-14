@@ -1,17 +1,15 @@
-Your agent says it addressed the review comments. Here is how you find out if it actually did.
+# X thread — 2 tweets
 
-I built agent-review-loop on top of slashdocs: humans leave anchored comments (pinned to the exact words), the agent pushes v2, and a harness re-derives every verdict from the character-level diff — never from the model's word.
+**1/**
+Your agent says it addressed the review comments. Here's how you find out if it actually did.
 
-Five numbers, no vibes:
-• Attribution rate — did the anchored text actually change?
-• Collateral churn — what % of edits happened OUTSIDE every anchor? (rewrote the doc and hoped nobody noticed)
-• Claim accuracy — agent's report vs the diff
-• Tokens per attributed fix
-• Rounds to converge
+I built agent-review-loop on top of slashdocs: humans comment on the exact words (W3C-anchored), the agent pushes v2 — and a harness re-derives every verdict from the character-level diff, never from the model's word.
 
-It caught a model claiming all 4 comments fixed while pushing zero changes:
-"VERIFICATION: MODEL CLAIMED ADDRESSED - ANCHORED TEXT UNCHANGED" ×4
+It immediately caught an agent resolving a comment after changing 2 characters in the whole doc. The comment got auto-reopened with a reply explaining why.
 
-Same doc + same comments, two models → two different scorecards. That's what measuring looks like.
+**2/**
+Five numbers, no vibes: attribution rate (did the anchored text actually change), collateral churn (the "rewrote everything and hoped nobody noticed" detector), claim accuracy, tokens per attributed fix, rounds to converge.
+
+Same doc + same comments, two models → 0% vs 50% attribution, 18k vs 29k tokens. The human comments are the ground truth. The agent's claims are data.
 
 github.com/harishkotra/agent-review-loop

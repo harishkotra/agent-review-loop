@@ -166,6 +166,19 @@ export async function docsCommentsResolve(cfg: SlashdocsConfig, docId: string, i
   return json
 }
 
+/** Reopen comments the agent resolved without editing the anchored text. */
+export async function docsCommentsReopen(cfg: SlashdocsConfig, docId: string, ids: string[]): Promise<any> {
+  if (ids.length === 0) return null
+  const { json } = await runCli(cfg, ['docs', 'comments', 'reopen', docId, ...ids])
+  return json
+}
+
+/** Reply in a comment thread — makes the agent's reasoning visible in the viewer. */
+export async function docsCommentsReply(cfg: SlashdocsConfig, docId: string, commentId: string, body: string): Promise<any> {
+  const { json } = await runCli(cfg, ['docs', 'comments', 'reply', docId, commentId, '--body', body])
+  return json
+}
+
 export async function docsLink(cfg: SlashdocsConfig, docId: string): Promise<string | null> {
   try {
     const { json } = await runCli(cfg, ['docs', 'link', docId])

@@ -1,6 +1,29 @@
+# dependencies
 node_modules/
+
+# build output
 dist/
+*.tsbuildinfo
+
+# run evidence (local by default; committed examples live in examples/)
 runs/
+
+# secrets — never commit
 .env
+.env.local
+*.pem
+
+# editors / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# tooling scratch
 .playwright-mcp/
-*.local
+.claude/
+.qoder/
+coverage/
+*.log
+tmp/

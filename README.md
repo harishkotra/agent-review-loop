@@ -1,7 +1,5 @@
 # agent-review-loop
 
-**Built By [Harish Kotra](https://harishkotra.me)** · [Checkout my other builds](https://dailybuild.xyz)
-
 A review-loop harness that measures whether an AI agent actually fixed what a
 human reviewer asked it to fix in a [slashdocs](https://github.com/razorpay/slashdocs) document.
 
@@ -142,7 +140,7 @@ first; run aborted without clobbering` and stops. Never a blind-retry loop.
 1. **Setup** — mode, model config, brief or existing document id.
 2. **Author v1** — the LLM writes one self-contained HTML file following `slashdocs guidelines all`; published; viewer URL shown.
 3. **Human review** — manual and explicit: open the doc, select words, comment. The Run panel polls the CLI every 5 s and lights a "N new" badge when you post; "Re-check comments" pulls `comments.before.json`.
-4. **Revision run** — the agent gets the document and only the unresolved actionable comments, with exactly four tools: `list_comments()`, `pull_document()`, `resolve_comment(comment_id)`, `push_version(html_path, summary)` (summary: one line per comment, `<comment id>: <what changed>`).
+4. **Revision run** — the agent gets the document and only the unresolved actionable comments, with five thin CLI tools: `list_comments()`, `pull_document()`, `resolve_comment(comment_id)`, `reply_comment(comment_id, body)` (every comment the agent does *not* fix must get a visible reply in slashdocs explaining why), `push_version(html_path, summary)` (summary: one line per comment, `<comment id>: <what changed>`).
 5. **Verify and score** — verdicts and metrics computed from the actual v1/v2 text.
 6. **Report** — scorecard in the UI, plus a self-contained HTML scorecard published back to slashdocs as its own document.
 
@@ -265,6 +263,92 @@ Two different attribution rates and two different token totals on identical inpu
 the harness is measuring the models, not itself. Note glm5.3flash's 46.9% churn: it
 fixed two anchors while rewriting large unanchored stretches — exactly the failure
 mode attribution rate alone would miss.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  subgraph client["client — Vite + React :5173"]
+    UI["Setup · Run · Verdicts · Scorecard · Publish<br/>settings panel (localStorage)"]
+  end
+  subgraph server["server — Hono :3001"]
+    API["REST /api/*"]
+    AG["revision agent<br/>OpenAI Agents SDK TS<br/>5 tools · trace processor"]
+    SC["scoring engine<br/>anchoring.ts + diffing.ts"]
+    RS[("runs/&lt;id&gt;/ evidence store")]
+  end
+  CLI["slashdocs CLI<br/>execFile array + --json, 60s"]
+  SD["slashdocs<br/>local (documents folder)<br/>or server (SA token)"]
+  LLM["OpenAI-compatible API<br/>Particle · Ollama · LM Studio · Gemini"]
+
+  UI -- "/api proxy" --> API
+  API --> AG -- chat/completions + tools --> LLM
+  AG -- "list/pull/resolve/reply/push" --> CLI
+  API --> CLI --> SD
+  API -- "v1/v2 text" --> SC
+  SC -- "verdicts.json · metrics.json" --> RS
+  API <--> RS
+```
+
+Request lifecycle of one run:
+
+1. `POST /api/runs` — snapshot model + slashdocs config (key kept in memory only), write `brief.md`.
+2. `POST /api/runs/:id/author` — one plain `fetch` to `/chat/completions` writes v1 (single self-contained HTML following `slashdocs guidelines all`) → `docs create` → viewer URL.
+3. Human comments in the slashdocs viewer; the Run tab polls `GET /api/runs/:id/comments/count` every 5 s (the "N new" badge).
+4. `POST /api/runs/:id/revise` — pull the current version as the base snapshot (`v1.html`), run the agent loop (up to 3 rounds), then `docs pull` → `v2.html`.
+5. The scoring engine diffs `v1.html`→`v2.html` in **body-textContent space** (the same space slashdocs anchors into), producing `verdicts.json` + `metrics.json`.
+6. `POST /api/runs/:id/scorecard` renders the measured results as its own slashdocs document.
+
+Integrity control inside the loop: after every agent round the harness re-diffs and **reopens any comment the agent resolved while its anchored text stayed untouched** — resolution without an edit is never convergence.
+
+## Key code
+
+**Every slashdocs call is an argv array, never a shell string** (`server/src/slashdocs.ts`):
+
+```ts
+const full = [...(cfg.mode === 'local' ? ['--local'] : []), ...args, '--json']
+const { stdout } = await execFileP(cfg.cliPath || 'slashdocs', full, {
+  timeout: 60_000, maxBuffer: 32 * 1024 * 1024, env: { ...process.env, /* SLASHDOCS_SERVER / SLASHDOCS_TOKEN in server mode */ },
+})
+```
+
+**Verdicts come from the text, never the model** (`server/src/scoring.ts`):
+
+```ts
+const v1loc = locateInOriginal(v1, anchor)          // offsets first, confirmed against quote
+const v2loc = reanchor(v2, anchor)                  // exact → prefix/suffix → fuzzy (±200 chars, 0.5)
+if (!v2loc) verdict = 'deleted'
+else verdict = normWs(v2.slice(v2loc.start, v2loc.end)) === normWs(v1.slice(v1loc.start, v1loc.end))
+  ? 'untouched' : 'edited'
+```
+
+**The agent's tools are thin CLI wrappers** (`server/src/agent.ts`) — `list_comments`,
+`pull_document`, `resolve_comment`, `reply_comment`, `push_version`. `push_version`
+accepts the full revised HTML (or a path), snapshots `v2.html` after a successful
+push, and on exit code 5 re-pulls and lets the agent retry **once** before recording
+`VERSION CONFLICT - another writer pushed first; run aborted without clobbering`.
+
+**Collateral churn** (`server/src/diffing.ts`) runs `diff-match-patch` at character
+level over the two body texts; every changed run is inside an anchor if it overlaps
+any comment's v1 span or re-anchored v2 span — everything else is collateral.
+
+## Contributing
+
+Fork → clone → `npm install` → `npm run doctor` → `npm run dev`. The scoring engine
+has a no-LLM test suite (`npx tsx scripts/score-test.ts`) that runs in seconds — extend
+it with any change to `anchoring.ts`, `diffing.ts`, or `scoring.ts`.
+
+Good first issues / roadmap ideas:
+
+- **Server-mode e2e** — spin up slashdocs via docker compose and exercise immutable versions + a real exit-5 conflict between two concurrent writers.
+- **SSE instead of the 5 s poll** — push comment counts to the Run tab the moment the CLI sees them.
+- **Per-section churn** — attribute collateral edits to document sections, not just inside/outside.
+- **Batch harness** — N documents × M models → one aggregate scorecard (the sample-size limitation above is the motivation).
+- **Mastra swap** — implement `server/src/agent.ts` against `@mastra/core` keeping the five tools and the run record identical; the run bundle is the contract.
+- **Trace replay UI** — render `trace.json` as a timeline of generations/tool calls.
+
+Please don't: add LLM-as-judge scoring into the verdict path (the human comment is the
+ground truth), or synthesise any number that could come from a real run.
 
 ## Framework swap note
 

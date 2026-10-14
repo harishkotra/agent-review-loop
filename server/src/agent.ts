@@ -94,8 +94,10 @@ Workflow (mandatory order):
 1. Your FIRST action must be a call to the pull_document tool. Never answer in plain text before using tools.
 2. For each comment, find the anchor quote in the document text and rewrite exactly that span to address the reviewer's request.
 3. Use push_version with the FULL revised HTML document in the html_path parameter and a summary that has one line per comment in the form "<comment id>: <what changed>". Do not truncate or summarize the HTML; pass the complete document.
-4. Use resolve_comment for each comment you genuinely addressed.
-5. Only after push_version succeeds may you give a final text answer. If a comment's quoted text does not exist in the document you were given, do not guess and do not re-anchor it to something similar. Leave it unresolved and report it with claim "stale_anchor".
+4. Every comment must get a visible disposition in slashdocs — never leave one silently untouched:
+   - resolve_comment for each comment you genuinely addressed,
+   - reply_comment for each comment you did NOT fix, stating why (you disagree, it is ambiguous, the request needs human input, or the anchor is stale).
+5. Only after push_version succeeds may you resolve or reply. If a comment's quoted text does not exist in the document you were given, do not guess and do not re-anchor it to something similar. Leave it unresolved, reply_comment saying the anchor is stale, and report it with claim "stale_anchor".
 
 Return a structured report covering every comment you were given. Do not claim a fix you did not make; the harness re-derives every verdict from the diff.`
 
@@ -157,6 +159,19 @@ async function doRevise(input: ReviseInput): Promise<ReviseResult> {
     },
   })
 
+  const replyComment = tool({
+    name: 'reply_comment',
+    description:
+      'Reply in a comment thread in slashdocs. REQUIRED for every comment you do not resolve: state the issue (ambiguous, out of scope, stale anchor, why you left it unchanged) so the reviewer sees it in the viewer.',
+    needsApproval: false,
+    parameters: z.object({ comment_id: z.string(), body: z.string() }),
+    execute: async ({ comment_id, body }) => {
+      await sd.docsCommentsReply(input.sd, input.docId, comment_id, body)
+      input.onStep(`tool reply_comment ${comment_id}: ${body.slice(0, 80)}`)
+      return JSON.stringify({ replied: comment_id })
+    },
+  })
+
   const pushVersion = tool({
     name: 'push_version',
     description:
@@ -189,7 +204,7 @@ async function doRevise(input: ReviseInput): Promise<ReviseResult> {
     instructions: SYSTEM_PROMPT,
     model: input.model.model,
     modelSettings: { providerData: { reasoning_effort: 'low' } } as any,
-    tools: [listComments, pullDocument, resolveComment, pushVersion],
+    tools: [listComments, pullDocument, resolveComment, replyComment, pushVersion],
   })
 
   const commentLines = input.comments
@@ -208,12 +223,23 @@ summary ("<comment id>: <what changed>"), and resolve the comments you genuinely
 addressed. Do not produce a final answer before push_version has succeeded.`
 
   let result = await run(agent, userMsg, { maxTurns: 24 })
-  // nudge retry: models sometimes narrate intent instead of acting
+  // nudge retry: models sometimes end the turn narrating intent ("I'll start by
+  // pulling the document"). Continue the SAME conversation instead of restarting,
+  // so the intent carries into an actual tool call.
   let nudges = 0
-  while (pushes === 0 && nudges < 2) {
+  while (pushes === 0 && nudges < 3) {
     nudges += 1
-    input.onStep(`nudge ${nudges}: agent produced no push; last reply: ${String(result.finalOutput ?? '').replace(/\s+/g, ' ').slice(0, 200)}`)
-    result = await run(agent, userMsg + '\n\nREMINDER: previous attempts called zero tools. Call pull_document first, then push_version with the FULL revised HTML as html_path.', { maxTurns: 24 })
+    input.onStep(`nudge ${nudges}: no push yet; last reply: ${String(result.finalOutput ?? '').replace(/\s+/g, ' ').slice(0, 140)}`)
+    const history = (result as any).history
+    if (Array.isArray(history) && history.length > 0) {
+      result = await run(
+        agent,
+        [...history, { role: 'user', content: 'Call the pull_document tool right now as your next action. Do not answer in text before the tool result.' }],
+        { maxTurns: 24 },
+      )
+    } else {
+      result = await run(agent, userMsg + '\n\nCall pull_document as your very first action.', { maxTurns: 24 })
+    }
   }
   input.onStep(`agent finished: pushes=${pushes} replies=${(result.rawResponses ?? []).length} last="${String(result.finalOutput ?? '').replace(/\s+/g, ' ').slice(0, 160)}"`)
 
