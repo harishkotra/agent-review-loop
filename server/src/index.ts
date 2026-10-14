@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server'
+import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs'
@@ -378,6 +379,16 @@ app.post('/api/runs/:id/scorecard', async c => {
     return c.json({ error: String(err?.stderr ?? err?.message ?? err) }, 500)
   }
 })
+
+// production mode: serve the built client (npm run build) from the same port
+const clientDist = join(here, '..', '..', 'client', 'dist')
+if (existsSync(clientDist)) {
+  app.use('/*', serveStatic({ root: clientDist }))
+  app.get('*', c => {
+    const idx = join(clientDist, 'index.html')
+    return existsSync(idx) ? c.html(readFileSync(idx, 'utf8')) : c.notFound()
+  })
+}
 
 const port = Number(process.env.PORT ?? 3001)
 // only bind when run directly; the smoke script imports `app` in-process

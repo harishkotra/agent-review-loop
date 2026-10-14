@@ -1,5 +1,7 @@
 # agent-review-loop
 
+**Built By [Harish Kotra](https://harishkotra.me)** · [Checkout my other builds](https://dailybuild.xyz)
+
 A review-loop harness that measures whether an AI agent actually fixed what a
 human reviewer asked it to fix in a [slashdocs](https://github.com/razorpay/slashdocs) document.
 
@@ -79,15 +81,46 @@ numbers compared: **10/73 vs 10/73 — agreement**.
 - Agent: [OpenAI Agents SDK for TypeScript](https://openai.github.io/openai-agents-js/) (`@openai/agents`) pointed at any OpenAI-compatible endpoint via `setDefaultOpenAIClient(new OpenAI({ baseURL, apiKey }))` + `setOpenAIAPI('chat_completions')`. Tracing enabled; a file-backed trace processor writes one `trace.json` per run — nothing leaves the machine.
 - `jsdom` for body-text extraction, `diff-match-patch` for character-level diffing.
 
-## Run it
+## Quickstart
+
+**Prerequisites**
+
+| What | Why | Get it |
+|---|---|---|
+| Node ≥ 20 | runtime | https://nodejs.org |
+| `slashdocs` CLI on PATH | all document/comment access | https://github.com/razorpay/slashdocs — `git clone … && make build-cli && cp bin/slashdocs ~/.local/bin/` (or a release archive from the releases page) |
+| An OpenAI-compatible endpoint + key | authoring + the revision agent | Particle, LM Studio (`http://localhost:1234/v1`, no key), Ollama (`http://localhost:11434/v1`), Gemini — anything that speaks `/chat/completions` with tool calling |
 
 ```bash
 npm install
-cp .env.example .env        # optional: server-side fallback key for headless runs
-npm run dev                 # client :5173, server :3001
+npm run doctor      # checks node, CLI, local server + folder, model reachability — with fixes
+npm run dev         # client http://localhost:5173, server :3001
 ```
 
-Requires the `slashdocs` CLI on PATH (or set its path in Settings).
+Open **http://localhost:5173**. The Setup panel shows your **Environment** status
+(✓/✗ per check, re-runnable) and a **real recorded example run** you can browse —
+verdicts, metrics, trace, evidence — with no API key and no tokens spent.
+
+![Setup with environment checks and example](docs/screenshots/setup.png)
+
+Then: **settings** → pick a preset (or type your base URL + key + model) → **Test
+connection** → back to Setup → click a **sample brief** (release readiness, incident
+postmortem, ADR, product spec, churn analysis, QA findings) → **create run** →
+**author v1** → open the viewer URL, select words, leave comments (the Run panel
+lights a "N new" badge within 5 s) → **run revision agent + score** → Verdicts and
+Scorecard.
+
+![Verdicts: quote, claim vs computed verdict, before/after at anchor](docs/screenshots/verdicts.png)
+![Scorecard: the five metrics from the real diff](docs/screenshots/scorecard.png)
+
+**Production mode** (single port, built client):
+
+```bash
+npm run build && npm start    # serves client + API on :3001
+```
+
+**Headless**: `cp .env.example .env`, put `PARTICLE_API_KEY=` in it, then
+`npm run smoke`. Model selection for the two-model test comes from `MODEL_A`/`MODEL_B` in `.env`.
 
 ### slashdocs access modes (selectable in the UI)
 
@@ -113,8 +146,8 @@ first; run aborted without clobbering` and stops. Never a blind-retry loop.
 5. **Verify and score** — verdicts and metrics computed from the actual v1/v2 text.
 6. **Report** — scorecard in the UI, plus a self-contained HTML scorecard published back to slashdocs as its own document.
 
-The agent must return a structured report (`response_format: json_object`, enforced
-with a zod `outputType`):
+The agent must return a structured report after the tool loop, enforced with a
+separate `response_format: json_object` call (validated against a zod schema):
 
 ```json
 {
@@ -138,7 +171,8 @@ The harness re-derives every verdict from the diff. Claims are only compared aga
 ## Tests
 
 ```bash
-npm run smoke               # clean case end-to-end against a locally served slashdocs doc
+npm run doctor                    # environment preflight with actionable fixes
+npm run smoke                     # clean case end-to-end against a locally served slashdocs doc
 npx tsx scripts/score-test.ts    # synthetic scoring-engine checks (no LLM)
 npx tsx scripts/stale-test.ts    # stale-anchor failure path
 npx tsx scripts/two-model-test.ts # identical doc+comments, two models
@@ -246,3 +280,7 @@ implementation; Mastra is documented, not built.
 - **Single-run sample sizes.** One run is one observation. Attribution rate on 4 comments is a ratio of small integers — treat differences of one comment as noise.
 - **CLI-created comments carry only `quote`** (no offsets); browser comments carry full anchors. Offset-based v1 location only applies to browser-made comments.
 - Token totals are what the provider's usage fields report; some local runtimes under-report.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
